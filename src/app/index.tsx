@@ -1,61 +1,45 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet, View, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+const MOCK_MATCHES = [
+  { id: '1', date: 'Fri, Oct 27', time: '7:00 PM', location: 'Ted\'s House', players: 2, max: 4, type: 'Casual' },
+  { id: '2', date: 'Sat, Oct 28', time: '2:00 PM', location: 'Community Center', players: 4, max: 4, type: 'League' },
+  { id: '3', date: 'Sun, Oct 29', time: '1:00 PM', location: 'Sarah\'s Place', players: 1, max: 4, type: 'Casual' },
+];
 
-export default function HomeScreen() {
+export default function BrowseMatchesScreen() {
+  const renderItem = ({ item }: { item: any }) => (
+    <ThemedView type="backgroundElement" style={styles.matchCard}>
+      <View style={styles.cardHeader}>
+        <ThemedText type="defaultSemiBold">{item.date} @ {item.time}</ThemedText>
+        <ThemedText type="small" style={styles.badge}>{item.type}</ThemedText>
+      </View>
+      <ThemedText>{item.location}</ThemedText>
+      <ThemedText style={styles.playersText}>
+        Players: {item.players} / {item.max} {item.players === item.max ? '(Full)' : '(Open)'}
+      </ThemedText>
+    </ThemedView>
+  );
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+        <View style={styles.header}>
+          <ThemedText type="title">Open Matches</ThemedText>
+          <ThemedText style={styles.subtitle}>Find a table to join</ThemedText>
+        </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
+        <FlatList
+          data={MOCK_MATCHES}
+          renderItem={renderItem}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.listContent}
+          style={styles.list}
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -64,35 +48,50 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    alignItems: 'center',
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
+    width: '100%',
     maxWidth: MaxContentWidth,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
+  header: {
     paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    paddingTop: Spacing.four,
+    paddingBottom: Spacing.three,
   },
-  title: {
-    textAlign: 'center',
+  subtitle: {
+    opacity: 0.7,
+    marginTop: 4,
   },
-  code: {
-    textTransform: 'uppercase',
+  list: {
+    flex: 1,
   },
-  stepContainer: {
+  listContent: {
+    paddingHorizontal: Spacing.four,
+    paddingBottom: BottomTabInset + Spacing.four,
     gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
   },
+  matchCard: {
+    padding: Spacing.four,
+    borderRadius: Spacing.three,
+    gap: Spacing.two,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  badge: {
+    backgroundColor: '#007AFF20',
+    color: '#007AFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  playersText: {
+    marginTop: Spacing.one,
+    opacity: 0.8,
+  }
 });

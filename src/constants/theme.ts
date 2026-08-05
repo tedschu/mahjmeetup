@@ -9,18 +9,22 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
+    text: '#1e3a5f',
     background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    backgroundElement: '#eef5fc',
+    backgroundSelected: '#d0e3f5',
+    textSecondary: '#668bb3',
+    accent: '#f26a36', // Vibrant orange/red from the tile's center
+    accentGold: '#b8860b', // Gold from the tile's ring
   },
   dark: {
     text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    background: '#0a192f',
+    backgroundElement: '#112240',
+    backgroundSelected: '#233554',
+    textSecondary: '#8892b0',
+    accent: '#ff7f50', // Brighter orange for dark mode
+    accentGold: '#d4af37', 
   },
 } as const;
 
