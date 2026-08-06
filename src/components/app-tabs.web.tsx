@@ -6,6 +6,7 @@ import {
   TabTriggerSlotProps,
   TabListProps,
 } from 'expo-router/ui';
+import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
 
@@ -61,11 +62,16 @@ export function CustomTabList(props: TabListProps) {
 
   return (
     <View {...props} style={styles.tabListContainer}>
-      <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        <ThemedText type="smallBold" style={styles.brandText}>
-          Mahjong
-        </ThemedText>
+      {/* The mark sits outside the pill so it reads as the app's own, rather
+          than as the first item in the navigation. */}
+      <Image
+        source={require('@/assets/images/logo.png')}
+        style={styles.brandMark}
+        contentFit="contain"
+        accessibilityLabel="Mahjong Meetup"
+      />
 
+      <ThemedView type="backgroundElement" style={styles.innerContainer}>
         {props.children}
 
         <ExternalLink href="https://docs.expo.dev" asChild>
@@ -102,8 +108,10 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
   },
-  brandText: {
-    marginRight: 'auto',
+  brandMark: {
+    width: 48,
+    height: 48,
+    marginRight: Spacing.three,
   },
   pressed: {
     opacity: 0.7,

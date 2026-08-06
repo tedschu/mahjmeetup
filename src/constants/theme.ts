@@ -82,6 +82,7 @@ export const MaxContentWidth = 800;
 /**
  * Height of the floating web tab bar. It is positioned absolutely so it can
  * overlay scrolling content, which means page content has to be inset by this
- * much or headings slide underneath it.
+ * much or headings slide underneath it. The height is set by the tallest thing
+ * in the bar, the 48px brand mark, plus the container's padding above and below.
  */
-export const WebTabBarInset = 76;
+export const WebTabBarInset = 80;
