@@ -1,0 +1,13 @@
+-- Keep signed-out callers out of score entry.
+--
+-- The previous migration revoked execute from PUBLIC and granted it only to
+-- authenticated, which is what the local stack ends up with. The remote project
+-- still has the deprecated "auto-expose new entities" behaviour switched on,
+-- which re-grants new functions to anon and authenticated after the fact, so
+-- there an anonymous caller could reach the function body.
+--
+-- Nothing was exploitable: the caller is null when signed out, so the host
+-- check rejects it. But the guard should be the grant, not the function's own
+-- logic, and this keeps local and remote identical rather than depending on a
+-- setting that Supabase removes on 2026-10-30.
+revoke all on function public.enter_match_scores(uuid, jsonb) from anon;
