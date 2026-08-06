@@ -1,11 +1,242 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import {
+  EXPERIENCE_LEVELS,
+  fetchMyProfile,
+  signOut,
+  updateMyProfile,
+  type ExperienceLevel,
+} from '@/lib/profile';
+
+type Draft = {
+  name: string;
+  phone: string;
+  town: string;
+  experience_level: string;
+};
+
+const EMPTY: Draft = { name: '', phone: '', town: '', experience_level: '' };
+
+function Field({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  hint,
+  keyboardType,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (next: string) => void;
+  placeholder?: string;
+  hint?: string;
+  keyboardType?: 'default' | 'phone-pad';
+}) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.field}>
+      <ThemedText type="smallBold">{label}</ThemedText>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={theme.textSecondary}
+        keyboardType={keyboardType ?? 'default'}
+        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+      />
+      {hint ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          {hint}
+        </ThemedText>
+      ) : null}
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
+  const theme = useTheme();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const { profile, email: accountEmail } = await fetchMyProfile();
+      setUserId(profile.id);
+      setEmail(accountEmail);
+      setDraft({
+        name: profile.name ?? '',
+        phone: profile.phone ?? '',
+        town: profile.town ?? '',
+        experience_level: profile.experience_level ?? '',
+      });
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load your profile.');
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      (async () => {
+        await load();
+        if (active) setIsLoading(false);
+      })();
+
+      return () => {
+        active = false;
+      };
+    }, [load])
+  );
+
+  const save = async () => {
+    if (!userId) return;
+
+    setIsSaving(true);
+    setStatus(null);
+    try {
+      await updateMyProfile(userId, {
+        name: draft.name.trim() || null,
+        phone: draft.phone.trim() || null,
+        town: draft.town.trim() || null,
+        experience_level: draft.experience_level || null,
+      });
+      setStatus('Profile saved.');
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save your profile.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const set = (key: keyof Draft) => (next: string) => {
+    setDraft((current) => ({ ...current, [key]: next }));
+    setStatus(null);
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Profile</Text>
-      <Text style={styles.subtitle}>Manage your account</Text>
-    </View>
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        {isLoading ? (
+          <ActivityIndicator style={styles.centered} />
+        ) : (
+          <ScrollView contentContainerStyle={styles.content}>
+            <View style={styles.header}>
+              <ThemedText type="title">Profile</ThemedText>
+              <ThemedText style={styles.subtitle}>
+                {email ?? 'How the group sees you'}
+              </ThemedText>
+            </View>
+
+            <Field
+              label="Name"
+              value={draft.name}
+              onChangeText={set('name')}
+              placeholder="What the group calls you"
+              hint="Shown on match cards and the leaderboard."
+            />
+
+            <Field
+              label="Phone"
+              value={draft.phone}
+              onChangeText={set('phone')}
+              placeholder="Optional"
+              keyboardType="phone-pad"
+            />
+
+            <Field
+              label="Town"
+              value={draft.town}
+              onChangeText={set('town')}
+              placeholder="Where you play from"
+            />
+
+            <View style={styles.field}>
+              <ThemedText type="smallBold">Experience</ThemedText>
+              <View style={styles.chips}>
+                {EXPERIENCE_LEVELS.map((level: ExperienceLevel) => {
+                  const selected = draft.experience_level === level;
+                  return (
+                    <Pressable
+                      key={level}
+                      onPress={() => set('experience_level')(selected ? '' : level)}
+                      style={({ pressed }) => pressed && styles.pressed}>
+                      <ThemedView
+                        type={selected ? 'backgroundSelected' : 'backgroundElement'}
+                        style={styles.chip}>
+                        <ThemedText
+                          type="small"
+                          themeColor={selected ? 'text' : 'textSecondary'}
+                          style={styles.chipLabel}>
+                          {level}
+                        </ThemedText>
+                      </ThemedView>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {error ? (
+              <ThemedText type="small" style={styles.error}>
+                {error}
+              </ThemedText>
+            ) : null}
+            {status ? (
+              <ThemedText type="small" style={{ color: theme.accentGold }}>
+                {status}
+              </ThemedText>
+            ) : null}
+
+            <Pressable
+              onPress={save}
+              disabled={isSaving}
+              style={({ pressed }) => pressed && styles.pressed}>
+              <View
+                style={[styles.primaryButton, { backgroundColor: theme.accent }, isSaving && styles.disabled]}>
+                {isSaving ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <ThemedText type="smallBold" style={styles.primaryLabel}>
+                    Save profile
+                  </ThemedText>
+                )}
+              </View>
+            </Pressable>
+
+            <Pressable onPress={signOut} style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedView type="backgroundElement" style={styles.secondaryButton}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  Sign out
+                </ThemedText>
+              </ThemedView>
+            </Pressable>
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </ThemedView>
   );
 }
 
@@ -13,15 +244,71 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
+  safeArea: {
+    flex: 1,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+  },
+  content: {
+    paddingHorizontal: Spacing.four,
+    paddingBottom: BottomTabInset + Spacing.four,
+    gap: Spacing.three,
+  },
+  header: {
+    paddingTop: Spacing.four,
+    paddingBottom: Spacing.two,
   },
   subtitle: {
+    opacity: 0.7,
+    marginTop: 4,
+  },
+  field: {
+    gap: Spacing.one,
+  },
+  input: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
     fontSize: 16,
-    color: '#666',
+  },
+  chips: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    flexWrap: 'wrap',
+  },
+  chip: {
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  chipLabel: {
+    textTransform: 'capitalize',
+  },
+  error: {
+    color: '#c0392b',
+  },
+  primaryButton: {
+    paddingVertical: Spacing.three,
+    borderRadius: Spacing.three,
+    alignItems: 'center',
+    marginTop: Spacing.two,
+  },
+  primaryLabel: {
+    color: '#ffffff',
+  },
+  secondaryButton: {
+    paddingVertical: Spacing.three,
+    borderRadius: Spacing.three,
+    alignItems: 'center',
+  },
+  disabled: {
+    opacity: 0.6,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  centered: {
+    marginTop: Spacing.six,
   },
 });

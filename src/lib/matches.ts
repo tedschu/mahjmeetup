@@ -62,6 +62,29 @@ export async function fetchMyMatches(userId: string): Promise<Match[]> {
   return (data ?? []) as Match[];
 }
 
+export type NewMatch = {
+  date_time: string;
+  location: string;
+  notes: string | null;
+  supplies_provided: boolean;
+  is_league: boolean;
+};
+
+/**
+ * Post a match with the signed-in member as host. The host's seat is taken by
+ * the seat_host_after_match_insert trigger, so this does not insert one.
+ */
+export async function createMatch(hostId: string, match: NewMatch): Promise<string> {
+  const { data, error } = await supabase
+    .from('matches')
+    .insert({ ...match, host_id: hostId })
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  return data.id;
+}
+
 /** Upcoming matches still accepting players or already closed, soonest first. */
 export async function fetchUpcomingMatches(): Promise<Match[]> {
   const { data, error } = await supabase

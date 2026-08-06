@@ -134,6 +134,7 @@ export type Database = {
           experience_level: string | null
           id: string
           name: string | null
+          phone: string | null
           town: string | null
         }
         Insert: {
@@ -141,6 +142,7 @@ export type Database = {
           experience_level?: string | null
           id: string
           name?: string | null
+          phone?: string | null
           town?: string | null
         }
         Update: {
@@ -148,6 +150,7 @@ export type Database = {
           experience_level?: string | null
           id?: string
           name?: string | null
+          phone?: string | null
           town?: string | null
         }
         Relationships: []

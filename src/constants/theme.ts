@@ -67,3 +67,10 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+/**
+ * Height of the floating web tab bar. It is positioned absolutely so it can
+ * overlay scrolling content, which means page content has to be inset by this
+ * much or headings slide underneath it.
+ */
+export const WebTabBarInset = 76;

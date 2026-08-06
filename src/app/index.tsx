@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProposeMatchSheet } from '@/components/propose-match-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -189,6 +190,7 @@ function MatchCard({
 }
 
 export default function BrowseMatchesScreen() {
+  const theme = useTheme();
   const [matches, setMatches] = useState<Match[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -196,6 +198,7 @@ export default function BrowseMatchesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [busyMatchId, setBusyMatchId] = useState<string | null>(null);
+  const [isProposing, setIsProposing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -262,8 +265,21 @@ export default function BrowseMatchesScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <ThemedText type="title">Open Matches</ThemedText>
-          <ThemedText style={styles.subtitle}>Find a table to join</ThemedText>
+          <View style={styles.headerRow}>
+            <View style={styles.headerText}>
+              <ThemedText type="title">Open Matches</ThemedText>
+              <ThemedText style={styles.subtitle}>Find a table to join</ThemedText>
+            </View>
+            <Pressable
+              onPress={() => setIsProposing(true)}
+              style={({ pressed }) => pressed && styles.pressed}>
+              <View style={[styles.proposeButton, { backgroundColor: theme.accent }]}>
+                <ThemedText type="smallBold" style={styles.proposeLabel}>
+                  Propose
+                </ThemedText>
+              </View>
+            </Pressable>
+          </View>
         </View>
 
         <FilterBar value={filter} onChange={setFilter} />
@@ -300,6 +316,16 @@ export default function BrowseMatchesScreen() {
             }
           />
         )}
+
+        <ProposeMatchSheet
+          hostId={userId}
+          visible={isProposing}
+          onClose={() => setIsProposing(false)}
+          onCreated={async () => {
+            setIsProposing(false);
+            await load();
+          }}
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -319,6 +345,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
     paddingBottom: Spacing.three,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  headerText: {
+    flex: 1,
+  },
+  proposeButton: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    borderRadius: Spacing.three,
+  },
+  proposeLabel: {
+    color: '#ffffff',
   },
   subtitle: {
     opacity: 0.7,
