@@ -62,29 +62,33 @@ export function CustomTabList(props: TabListProps) {
 
   return (
     <View {...props} style={styles.tabListContainer}>
-      {/* The mark sits outside the pill so it reads as the app's own, rather
-          than as the first item in the navigation. */}
-      <Image
-        source={require('@/assets/images/logo.png')}
-        style={styles.brandMark}
-        contentFit="contain"
-        accessibilityLabel="Mahjong Meetup"
-      />
+      {/* Shares the content column's width and padding, so the mark's left
+          edge lines up with the headings and cards below it. */}
+      <View style={styles.bar}>
+        {/* The mark sits outside the pill so it reads as the app's own, rather
+            than as the first item in the navigation. */}
+        <Image
+          source={require('@/assets/images/logo.png')}
+          style={styles.brandMark}
+          contentFit="contain"
+          accessibilityLabel="Mahjong Meetup"
+        />
 
-      <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        {props.children}
+        <ThemedView type="backgroundElement" style={styles.innerContainer}>
+          {props.children}
 
-        <ExternalLink href="https://docs.expo.dev" asChild>
-          <Pressable style={styles.externalPressable}>
-            <ThemedText type="link">Docs</ThemedText>
-            <SymbolView
-              tintColor={colors.text}
-              name={{ ios: 'arrow.up.right.square', web: 'link' }}
-              size={12}
-            />
-          </Pressable>
-        </ExternalLink>
-      </ThemedView>
+          <ExternalLink href="https://docs.expo.dev" asChild>
+            <Pressable style={styles.externalPressable}>
+              <ThemedText type="link">Docs</ThemedText>
+              <SymbolView
+                tintColor={colors.text}
+                name={{ ios: 'arrow.up.right.square', web: 'link' }}
+                size={12}
+              />
+            </Pressable>
+          </ExternalLink>
+        </ThemedView>
+      </View>
     </View>
   );
 }
@@ -93,10 +97,19 @@ const styles = StyleSheet.create({
   tabListContainer: {
     position: 'absolute',
     width: '100%',
-    padding: Spacing.three,
+    paddingVertical: Spacing.three,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
+  },
+  bar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    maxWidth: MaxContentWidth,
+    // Matches the horizontal padding every screen's content uses.
+    paddingHorizontal: Spacing.four,
+    gap: Spacing.three,
   },
   innerContainer: {
     paddingVertical: Spacing.two,
@@ -106,12 +119,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexGrow: 1,
     gap: Spacing.two,
-    maxWidth: MaxContentWidth,
   },
   brandMark: {
     width: 48,
     height: 48,
-    marginRight: Spacing.three,
   },
   pressed: {
     opacity: 0.7,
