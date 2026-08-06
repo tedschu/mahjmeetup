@@ -168,6 +168,10 @@ export type Database = {
       }
     }
     Functions: {
+      enter_match_scores: {
+        Args: { p_match_id: string; p_scores: Json }
+        Returns: undefined
+      }
       match_seat_limit: { Args: never; Returns: number }
     }
     Enums: {

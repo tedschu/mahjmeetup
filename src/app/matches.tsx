@@ -1,8 +1,16 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  SectionList,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ScoreEntrySheet } from '@/components/score-entry-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -10,13 +18,23 @@ import { useTheme } from '@/hooks/use-theme';
 import { fetchMyMatches, formatWhen, SEATS_PER_MATCH, type Match } from '@/lib/matches';
 import { supabase } from '@/lib/supabase';
 
-function MatchCard({ match, userId }: { match: Match; userId: string }) {
+function MatchCard({
+  match,
+  userId,
+  onEnterScores,
+}: {
+  match: Match;
+  userId: string;
+  onEnterScores: () => void;
+}) {
   const theme = useTheme();
   const isHosting = match.host_id === userId;
   const names = match.players
     .map((player) => player.profile?.name)
     .filter((name): name is string => Boolean(name));
   const scored = match.players.filter((player) => player.score !== null);
+  // Only the host records the card; a canceled match has nothing to record.
+  const canScore = isHosting && match.status !== 'canceled' && match.players.length > 0;
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
@@ -54,6 +72,18 @@ function MatchCard({ match, userId }: { match: Match; userId: string }) {
             Scores in
           </ThemedText>
         ) : null}
+
+        {canScore ? (
+          <Pressable
+            onPress={onEnterScores}
+            style={({ pressed }) => [styles.scoreAction, pressed && styles.pressed]}>
+            <View style={[styles.scoreButton, { backgroundColor: theme.accent }]}>
+              <ThemedText type="smallBold" style={styles.scoreLabel}>
+                {scored.length ? 'Edit scores' : 'Enter scores'}
+              </ThemedText>
+            </View>
+          </Pressable>
+        ) : null}
       </View>
     </ThemedView>
   );
@@ -65,6 +95,7 @@ export default function MatchesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [scoringMatchId, setScoringMatchId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -118,6 +149,10 @@ export default function MatchesScreen() {
     { title: 'Past', data: past },
   ].filter((section) => section.data.length > 0);
 
+  // Read from the freshly loaded list, so the sheet shows current seats rather
+  // than a snapshot taken when the button was tapped.
+  const scoringMatch = matches.find((match) => match.id === scoringMatchId) ?? null;
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -132,7 +167,13 @@ export default function MatchesScreen() {
           <SectionList
             sections={sections}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <MatchCard match={item} userId={userId ?? ''} />}
+            renderItem={({ item }) => (
+              <MatchCard
+                match={item}
+                userId={userId ?? ''}
+                onEnterScores={() => setScoringMatchId(item.id)}
+              />
+            )}
             renderSectionHeader={({ section }) => (
               <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionHeader}>
                 {section.title.toUpperCase()}
@@ -148,6 +189,17 @@ export default function MatchesScreen() {
             stickySectionHeadersEnabled={false}
           />
         )}
+
+        <ScoreEntrySheet
+          key={scoringMatch?.id ?? 'none'}
+          match={scoringMatch}
+          visible={scoringMatch !== null}
+          onClose={() => setScoringMatchId(null)}
+          onSaved={async () => {
+            setScoringMatchId(null);
+            await load();
+          }}
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -201,6 +253,20 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  scoreAction: {
+    marginLeft: 'auto',
+  },
+  scoreButton: {
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  scoreLabel: {
+    color: '#ffffff',
+  },
+  pressed: {
+    opacity: 0.7,
   },
   centered: {
     marginTop: Spacing.six,

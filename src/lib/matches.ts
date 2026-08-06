@@ -88,6 +88,24 @@ export async function joinMatch(matchId: string, userId: string) {
   if (error) throw error;
 }
 
+/**
+ * Record the card and close the match, in one server-side step. The database
+ * checks that the caller hosts the match and that every seat has a score, so a
+ * half-entered card can never close a match or leave someone on zero in the
+ * standings. Safe to call again to correct a mistake.
+ */
+export async function enterMatchScores(
+  matchId: string,
+  scores: { player_id: string; score: number }[]
+) {
+  const { error } = await supabase.rpc('enter_match_scores', {
+    p_match_id: matchId,
+    p_scores: scores,
+  });
+
+  if (error) throw error;
+}
+
 export async function leaveMatch(matchId: string, userId: string) {
   const { error } = await supabase
     .from('match_players')
