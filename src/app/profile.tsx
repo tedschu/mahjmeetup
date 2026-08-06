@@ -50,7 +50,7 @@ function Field({
 
   return (
     <View style={styles.field}>
-      <ThemedText type="smallBold">{label}</ThemedText>
+      <ThemedText type="label" themeColor="textSecondary">{label}</ThemedText>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -145,7 +145,7 @@ export default function ProfileScreen() {
           <ScrollView contentContainerStyle={styles.content}>
             <View style={styles.header}>
               <ThemedText type="title">Profile</ThemedText>
-              <ThemedText style={styles.subtitle}>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
                 {email ?? 'How the group sees you'}
               </ThemedText>
             </View>
@@ -174,7 +174,9 @@ export default function ProfileScreen() {
             />
 
             <View style={styles.field}>
-              <ThemedText type="smallBold">Experience</ThemedText>
+              <ThemedText type="label" themeColor="textSecondary">
+                Experience
+              </ThemedText>
               <View style={styles.chips}>
                 {EXPERIENCE_LEVELS.map((level: ExperienceLevel) => {
                   const selected = draft.experience_level === level;
@@ -185,11 +187,10 @@ export default function ProfileScreen() {
                       style={({ pressed }) => pressed && styles.pressed}>
                       <ThemedView
                         type={selected ? 'backgroundSelected' : 'backgroundElement'}
-                        style={styles.chip}>
+                        style={[styles.chip, { borderColor: theme.rule }]}>
                         <ThemedText
-                          type="small"
-                          themeColor={selected ? 'text' : 'textSecondary'}
-                          style={styles.chipLabel}>
+                          type="label"
+                          themeColor={selected ? 'text' : 'textSecondary'}>
                           {level}
                         </ThemedText>
                       </ThemedView>
@@ -260,8 +261,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.two,
   },
   subtitle: {
-    opacity: 0.7,
-    marginTop: 4,
+    marginTop: 2,
   },
   field: {
     gap: Spacing.one,
@@ -278,12 +278,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   chip: {
-    paddingVertical: Spacing.one,
+    paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
-  },
-  chipLabel: {
-    textTransform: 'capitalize',
+    borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   error: {
     color: '#c0392b',

@@ -13,7 +13,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { DisplayFont, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { enterMatchScores, formatWhen, type Match } from '@/lib/matches';
 
@@ -206,6 +206,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   input: {
+    fontFamily: DisplayFont,
+    fontVariant: ['tabular-nums'],
     width: 110,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,

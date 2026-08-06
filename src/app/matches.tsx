@@ -37,19 +37,26 @@ function MatchCard({
   const canScore = isHosting && match.status !== 'canceled' && match.players.length > 0;
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
+    <ThemedView type="backgroundElement" style={[styles.card, { borderColor: theme.rule }]}>
       <View style={styles.cardHeader}>
-        <ThemedText type="defaultSemiBold">{formatWhen(match.date_time)}</ThemedText>
-        <ThemedText type="small" style={[styles.badge, { color: theme.accent }]}>
+        <ThemedText type="label" themeColor="accent">
           {match.is_league ? 'League' : 'Scramble'}
+        </ThemedText>
+        <ThemedText type="figureSmall" themeColor="textSecondary">
+          {match.players.length}/{SEATS_PER_MATCH}
         </ThemedText>
       </View>
 
-      <ThemedText>{match.location}</ThemedText>
+      <ThemedText type="subtitle">{match.location}</ThemedText>
+
+      <ThemedText type="defaultSemiBold" themeColor="textSecondary">
+        {formatWhen(match.date_time)}
+      </ThemedText>
+
+      <View style={[styles.divider, { borderColor: theme.rule }]} />
 
       <ThemedText type="small" themeColor="textSecondary">
-        {match.players.length}/{SEATS_PER_MATCH} seated
-        {names.length ? ` · ${names.join(', ')}` : ''}
+        {names.length ? names.join(', ') : 'No one seated yet'}
       </ThemedText>
 
       {match.notes ? (
@@ -59,17 +66,17 @@ function MatchCard({
       ) : null}
 
       <View style={styles.cardFooter}>
-        <ThemedText type="smallBold" themeColor="textSecondary">
+        <ThemedText type="label" themeColor="textSecondary">
           {match.status ?? 'open'}
         </ThemedText>
         {isHosting ? (
-          <ThemedText type="smallBold" style={{ color: theme.accentGold }}>
+          <ThemedText type="label" style={{ color: theme.accentGold }}>
             Hosting
           </ThemedText>
         ) : null}
         {scored.length ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            Scores in
+          <ThemedText type="label" themeColor="textSecondary">
+            Scored
           </ThemedText>
         ) : null}
 
@@ -157,8 +164,13 @@ export default function MatchesScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
+          <ThemedText type="label" themeColor="accent">
+            {upcoming.length === 0 ? 'Nothing booked' : `${upcoming.length} coming up`}
+          </ThemedText>
           <ThemedText type="title">My Matches</ThemedText>
-          <ThemedText style={styles.subtitle}>Upcoming and past games</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
+            Upcoming and past games
+          </ThemedText>
         </View>
 
         {isLoading ? (
@@ -175,8 +187,8 @@ export default function MatchesScreen() {
               />
             )}
             renderSectionHeader={({ section }) => (
-              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionHeader}>
-                {section.title.toUpperCase()}
+              <ThemedText type="label" themeColor="textSecondary" style={styles.sectionHeader}>
+                {section.title}
               </ThemedText>
             )}
             contentContainerStyle={styles.listContent}
@@ -221,8 +233,11 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.three,
   },
   subtitle: {
-    opacity: 0.7,
-    marginTop: 4,
+    marginTop: 2,
+  },
+  divider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginVertical: Spacing.one,
   },
   listContent: {
     paddingHorizontal: Spacing.four,
@@ -234,25 +249,21 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: Spacing.four,
-    borderRadius: Spacing.three,
-    gap: Spacing.two,
+    borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.one,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: Spacing.one,
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
     marginTop: Spacing.one,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    overflow: 'hidden',
   },
   scoreAction: {
     marginLeft: 'auto',

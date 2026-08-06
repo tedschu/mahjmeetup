@@ -16,6 +16,7 @@ export const Colors = {
     textSecondary: '#668bb3',
     accent: '#f26a36', // Vibrant orange/red from the tile's center
     accentGold: '#b8860b', // Gold from the tile's ring
+    rule: '#cddff0', // Hairline, the leader rule on the card
   },
   dark: {
     text: '#ffffff',
@@ -24,7 +25,8 @@ export const Colors = {
     backgroundSelected: '#233554',
     textSecondary: '#8892b0',
     accent: '#ff7f50', // Brighter orange for dark mode
-    accentGold: '#d4af37', 
+    accentGold: '#d4af37',
+    rule: '#1e3a5f',
   },
 } as const;
 
@@ -54,6 +56,15 @@ export const Fonts = Platform.select({
     mono: 'var(--font-mono)',
   },
 });
+
+/**
+ * Archivo Narrow carries headings, section labels, and every number. The NMJL
+ * card is a densely typeset printed form, and a condensed face with tabular
+ * figures is what lets a column of point values line up the way it does there.
+ * Body copy stays on the system face, which is the more legible of the two at
+ * small sizes and keeps the download to one family.
+ */
+export const DisplayFont = 'ArchivoNarrow_600SemiBold';
 
 export const Spacing = {
   half: 2,

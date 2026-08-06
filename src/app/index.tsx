@@ -57,7 +57,7 @@ function FilterBar({ value, onChange }: { value: FilterKey; onChange: (next: Fil
               type={selected ? 'backgroundSelected' : 'backgroundElement'}
               style={styles.filterChip}>
               <ThemedText
-                type="small"
+                type="label"
                 themeColor={selected ? 'text' : 'textSecondary'}
                 style={selected ? { color: theme.text } : undefined}>
                 {filter.label}
@@ -150,15 +150,23 @@ function MatchCard({
     .filter((name): name is string => Boolean(name));
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
+    <ThemedView type="backgroundElement" style={[styles.card, { borderColor: theme.rule }]}>
       <View style={styles.cardHeader}>
-        <ThemedText type="defaultSemiBold">{formatWhen(match.date_time)}</ThemedText>
-        <ThemedText type="small" style={[styles.badge, { color: theme.accent }]}>
+        <ThemedText type="label" themeColor="accent">
           {match.is_league ? 'League' : 'Scramble'}
+        </ThemedText>
+        <ThemedText type="figureSmall" themeColor="textSecondary">
+          {match.players.length}/{SEATS_PER_MATCH}
         </ThemedText>
       </View>
 
-      <ThemedText>{match.location}</ThemedText>
+      <ThemedText type="subtitle">{match.location}</ThemedText>
+
+      <ThemedText type="defaultSemiBold" themeColor="textSecondary">
+        {formatWhen(match.date_time)}
+      </ThemedText>
+
+      <View style={[styles.divider, { borderColor: theme.rule }]} />
 
       <ThemedText type="small" themeColor="textSecondary">
         Hosted by {match.host?.name ?? 'a member'}
@@ -166,8 +174,7 @@ function MatchCard({
       </ThemedText>
 
       <ThemedText type="small" themeColor="textSecondary">
-        {match.players.length}/{SEATS_PER_MATCH} seated
-        {names.length ? ` · ${names.join(', ')}` : ''}
+        {names.length ? names.join(', ') : 'No one seated yet'}
       </ThemedText>
 
       {match.notes ? (
@@ -260,6 +267,7 @@ export default function BrowseMatchesScreen() {
   );
 
   const visible = matches.filter((match) => matchesFilter(match, filter));
+  const openCount = matches.filter((match) => match.status === 'open').length;
 
   return (
     <ThemedView style={styles.container}>
@@ -267,8 +275,17 @@ export default function BrowseMatchesScreen() {
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.headerText}>
-              <ThemedText type="title">Open Matches</ThemedText>
-              <ThemedText style={styles.subtitle}>Find a table to join</ThemedText>
+              {/* Carries a count rather than restating the title, so the
+                  eyebrow tells you something the heading does not. */}
+              <ThemedText type="label" themeColor="accent">
+                {openCount === 0
+                  ? 'No open tables'
+                  : `${openCount} ${openCount === 1 ? 'table' : 'tables'} open`}
+              </ThemedText>
+              <ThemedText type="title">Browse</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
+                Find a table to join
+              </ThemedText>
             </View>
             <Pressable
               onPress={() => setIsProposing(true)}
@@ -364,8 +381,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   subtitle: {
-    opacity: 0.7,
-    marginTop: 4,
+    marginTop: 2,
+  },
+  divider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginVertical: Spacing.one,
   },
   filterBar: {
     flexDirection: 'row',
@@ -390,13 +410,15 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: Spacing.four,
-    borderRadius: Spacing.three,
-    gap: Spacing.two,
+    borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.one,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: Spacing.one,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -404,12 +426,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     minHeight: 32,
     marginTop: Spacing.one,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    overflow: 'hidden',
   },
   seatButton: {
     paddingVertical: Spacing.one,

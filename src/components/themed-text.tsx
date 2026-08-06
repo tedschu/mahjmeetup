@@ -1,6 +1,6 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { DisplayFont, Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
@@ -11,6 +11,12 @@ export type ThemedTextProps = TextProps & {
     | 'small'
     | 'smallBold'
     | 'subtitle'
+    /** Uppercase, tracked section header, after the NMJL card's category rows. */
+    | 'label'
+    /** Tabular figures for the value column. Never use for prose. */
+    | 'figure'
+    /** The same figures at row scale, for counts sitting inside a line. */
+    | 'figureSmall'
     | 'link'
     | 'linkPrimary'
     | 'code';
@@ -30,6 +36,9 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'small' && styles.small,
         type === 'smallBold' && styles.smallBold,
         type === 'subtitle' && styles.subtitle,
+        type === 'label' && styles.label,
+        type === 'figure' && styles.figure,
+        type === 'figureSmall' && styles.figureSmall,
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
         type === 'code' && styles.code,
@@ -62,14 +71,35 @@ const styles = StyleSheet.create({
     fontWeight: 600,
   },
   title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
+    fontFamily: DisplayFont,
+    fontSize: 44,
+    lineHeight: 48,
+    letterSpacing: -0.4,
   },
   subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
+    fontFamily: DisplayFont,
+    fontSize: 28,
+    lineHeight: 34,
+    letterSpacing: -0.2,
+  },
+  label: {
+    fontFamily: DisplayFont,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  figure: {
+    fontFamily: DisplayFont,
+    fontSize: 26,
+    lineHeight: 30,
+    fontVariant: ['tabular-nums'],
+  },
+  figureSmall: {
+    fontFamily: DisplayFont,
+    fontSize: 15,
+    lineHeight: 20,
+    fontVariant: ['tabular-nums'],
   },
   link: {
     lineHeight: 30,

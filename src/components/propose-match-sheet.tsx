@@ -120,7 +120,7 @@ export function ProposeMatchSheet({
 
             <View style={styles.pair}>
               <View style={styles.pairItem}>
-                <ThemedText type="smallBold">Date</ThemedText>
+                <ThemedText type="label" themeColor="textSecondary">Date</ThemedText>
                 <TextInput
                   value={date}
                   onChangeText={setDate}
@@ -133,7 +133,7 @@ export function ProposeMatchSheet({
                 />
               </View>
               <View style={styles.pairItem}>
-                <ThemedText type="smallBold">Time</ThemedText>
+                <ThemedText type="label" themeColor="textSecondary">Time</ThemedText>
                 <TextInput
                   value={time}
                   onChangeText={setTime}
@@ -154,7 +154,7 @@ export function ProposeMatchSheet({
             ) : null}
 
             <View style={styles.field}>
-              <ThemedText type="smallBold">Venue</ThemedText>
+              <ThemedText type="label" themeColor="textSecondary">Venue</ThemedText>
               <TextInput
                 value={location}
                 onChangeText={setLocation}
@@ -168,7 +168,7 @@ export function ProposeMatchSheet({
             </View>
 
             <View style={styles.field}>
-              <ThemedText type="smallBold">Notes</ThemedText>
+              <ThemedText type="label" themeColor="textSecondary">Notes</ThemedText>
               <TextInput
                 value={notes}
                 onChangeText={setNotes}

@@ -38,6 +38,11 @@ function summarise(row: RankedRow) {
   return [games, wins, average].filter(Boolean).join(' · ');
 }
 
+/**
+ * A row of the standings, set the way a hand and its value sit on the NMJL
+ * card: the name on the left, the points right-aligned in the margin, and a
+ * leader rule carrying the eye across the gap between them.
+ */
 function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: boolean }) {
   const theme = useTheme();
   const unplayed = row.games_played === 0;
@@ -45,11 +50,11 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
   return (
     <ThemedView
       type={isCurrentUser ? 'backgroundSelected' : 'backgroundElement'}
-      style={styles.row}>
+      style={[styles.row, { borderColor: theme.rule }]}>
       <ThemedText
-        type="defaultSemiBold"
-        style={[styles.rank, unplayed && styles.muted]}
-        themeColor={unplayed ? 'textSecondary' : 'text'}>
+        type="figureSmall"
+        style={styles.rank}
+        themeColor={unplayed ? 'textSecondary' : 'textSecondary'}>
         {unplayed ? '—' : row.rank}
       </ThemedText>
 
@@ -63,9 +68,17 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
         </ThemedText>
       </View>
 
+      {/* Uses the secondary ink rather than the hairline rule colour: the rule
+          is tuned for card edges and disappears against the highlighted row. */}
+      <View style={[styles.leader, { borderColor: theme.textSecondary }]} />
+
       <ThemedText
-        type="defaultSemiBold"
-        style={[styles.points, { color: row.rank === 1 && !unplayed ? theme.accentGold : theme.text }]}>
+        type="figure"
+        style={[
+          styles.points,
+          { color: row.rank === 1 && !unplayed ? theme.accentGold : theme.text },
+          unplayed && styles.muted,
+        ]}>
         {row.total_points}
       </ThemedText>
     </ThemedView>
@@ -115,12 +128,21 @@ export default function LeaderboardScreen() {
     setIsRefreshing(false);
   }, [load]);
 
+  const playedCount = rows.filter((row) => row.games_played > 0).length;
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
+          <ThemedText type="label" themeColor="accent">
+            {playedCount === 0
+              ? 'No cards recorded'
+              : `${playedCount} ${playedCount === 1 ? 'member' : 'members'} playing`}
+          </ThemedText>
           <ThemedText type="title">Leaderboard</ThemedText>
-          <ThemedText style={styles.subtitle}>Ranked by total points</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
+            Ranked by total points
+          </ThemedText>
         </View>
 
         {error ? (
@@ -175,8 +197,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.three,
   },
   subtitle: {
-    opacity: 0.7,
-    marginTop: 4,
+    marginTop: 2,
   },
   errorBanner: {
     marginHorizontal: Spacing.four,
@@ -191,23 +212,31 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
     gap: Spacing.three,
   },
   rank: {
-    minWidth: 24,
-    textAlign: 'center',
+    minWidth: 20,
+    textAlign: 'right',
   },
   muted: {
-    opacity: 0.6,
+    opacity: 0.45,
   },
   identity: {
-    flex: 1,
     gap: 2,
   },
+  /** Carries the eye from the name across to the value, as the card's rules do. */
+  leader: {
+    flex: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: 2,
+    minWidth: Spacing.four,
+  },
   points: {
-    fontVariant: ['tabular-nums'],
+    textAlign: 'right',
   },
   footnote: {
     marginTop: Spacing.three,
