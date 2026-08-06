@@ -7,64 +7,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { fetchMyMatches, formatWhen, SEATS_PER_MATCH, type Match } from '@/lib/matches';
 import { supabase } from '@/lib/supabase';
-
-const MATCH_SELECT = `
-  id, date_time, location, notes, supplies_provided, is_league, status, host_id,
-  host:profiles!matches_host_id_fkey (id, name),
-  players:match_players (player_id, score, profile:profiles (id, name))
-`;
-
-type Match = {
-  id: string;
-  date_time: string;
-  location: string;
-  notes: string | null;
-  supplies_provided: boolean | null;
-  is_league: boolean | null;
-  status: string | null;
-  host_id: string;
-  host: { id: string; name: string | null } | null;
-  players: {
-    player_id: string;
-    score: number | null;
-    profile: { id: string; name: string | null } | null;
-  }[];
-};
-
-const SEATS_PER_MATCH = 4;
-
-/** Matches the signed-in member is seated at, plus any they host but have not taken a seat in. */
-async function fetchMyMatches(userId: string): Promise<Match[]> {
-  const { data: seats, error: seatsError } = await supabase
-    .from('match_players')
-    .select('match_id')
-    .eq('player_id', userId);
-
-  if (seatsError) throw seatsError;
-
-  const seatedIds = seats.map((seat) => seat.match_id);
-  const query = supabase.from('matches').select(MATCH_SELECT).order('date_time');
-
-  // `id.in.()` is not valid PostgREST, so only widen the filter when there are seats.
-  const { data, error } = await (seatedIds.length
-    ? query.or(`host_id.eq.${userId},id.in.(${seatedIds.join(',')})`)
-    : query.eq('host_id', userId));
-
-  if (error) throw error;
-  return (data ?? []) as Match[];
-}
-
-function formatWhen(dateTime: string) {
-  const date = new Date(dateTime);
-  const day = date.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  return `${day} @ ${time}`;
-}
 
 function MatchCard({ match, userId }: { match: Match; userId: string }) {
   const theme = useTheme();
