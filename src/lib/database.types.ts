@@ -65,6 +65,13 @@ export type Database = {
             foreignKeyName: "match_players_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "match_players_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -109,6 +116,13 @@ export type Database = {
             foreignKeyName: "matches_host_id_fkey"
             columns: ["host_id"]
             isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "matches_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -140,10 +154,21 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      leaderboard: {
+        Row: {
+          average_placement: number | null
+          average_points: number | null
+          games_played: number | null
+          name: string | null
+          player_id: string | null
+          total_points: number | null
+          wins: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      match_seat_limit: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never

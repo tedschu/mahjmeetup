@@ -67,13 +67,15 @@ values
   ('aaaaaaaa-0000-0000-0000-000000000003', '22222222-2222-2222-2222-222222222222'),
   ('aaaaaaaa-0000-0000-0000-000000000003', '33333333-3333-3333-3333-333333333333');
 
-update public.match_players set score = 32
+-- Scores are NMJL-shaped: each hand on the card is worth 25-85, so a session
+-- total lands in multiples of five and a shut-out zero is normal.
+update public.match_players set score = 50
   where match_id = 'aaaaaaaa-0000-0000-0000-000000000003'
     and player_id = '11111111-1111-1111-1111-111111111111';
-update public.match_players set score = 18
+update public.match_players set score = 25
   where match_id = 'aaaaaaaa-0000-0000-0000-000000000003'
     and player_id = '22222222-2222-2222-2222-222222222222';
-update public.match_players set score = 25
+update public.match_players set score = 35
   where match_id = 'aaaaaaaa-0000-0000-0000-000000000003'
     and player_id = '33333333-3333-3333-3333-333333333333';
 
@@ -99,3 +101,36 @@ values
   ('aaaaaaaa-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111'),
   ('aaaaaaaa-0000-0000-0000-000000000005', '33333333-3333-3333-3333-333333333333'),
   ('aaaaaaaa-0000-0000-0000-000000000005', '44444444-4444-4444-4444-444444444444');
+
+-- Two more finished four-player nights, so the leaderboard has real history and
+-- no single match decides the standings.
+insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, is_league, status)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000006', '11111111-1111-1111-1111-111111111111',
+   now() - interval '21 days', 'Ted''s House', null, true, false, 'open'),
+  ('aaaaaaaa-0000-0000-0000-000000000007', '22222222-2222-2222-2222-222222222222',
+   now() - interval '14 days', 'Community Center', null, false, true, 'open');
+
+insert into public.match_players (match_id, player_id)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000006', '22222222-2222-2222-2222-222222222222'),
+  ('aaaaaaaa-0000-0000-0000-000000000006', '33333333-3333-3333-3333-333333333333'),
+  ('aaaaaaaa-0000-0000-0000-000000000006', '44444444-4444-4444-4444-444444444444'),
+  ('aaaaaaaa-0000-0000-0000-000000000007', '11111111-1111-1111-1111-111111111111'),
+  ('aaaaaaaa-0000-0000-0000-000000000007', '33333333-3333-3333-3333-333333333333'),
+  ('aaaaaaaa-0000-0000-0000-000000000007', '44444444-4444-4444-4444-444444444444');
+
+-- Sarah takes the 21-days-ago night, Mei the 14-days-ago one, so the top of the
+-- table is decided by totals rather than by one player sweeping every match.
+update public.match_players set score = 50 where match_id = 'aaaaaaaa-0000-0000-0000-000000000006' and player_id = '11111111-1111-1111-1111-111111111111';
+update public.match_players set score = 75 where match_id = 'aaaaaaaa-0000-0000-0000-000000000006' and player_id = '22222222-2222-2222-2222-222222222222';
+update public.match_players set score = 0  where match_id = 'aaaaaaaa-0000-0000-0000-000000000006' and player_id = '33333333-3333-3333-3333-333333333333';
+update public.match_players set score = 25 where match_id = 'aaaaaaaa-0000-0000-0000-000000000006' and player_id = '44444444-4444-4444-4444-444444444444';
+
+update public.match_players set score = 60 where match_id = 'aaaaaaaa-0000-0000-0000-000000000007' and player_id = '11111111-1111-1111-1111-111111111111';
+update public.match_players set score = 30 where match_id = 'aaaaaaaa-0000-0000-0000-000000000007' and player_id = '22222222-2222-2222-2222-222222222222';
+update public.match_players set score = 85 where match_id = 'aaaaaaaa-0000-0000-0000-000000000007' and player_id = '33333333-3333-3333-3333-333333333333';
+update public.match_players set score = 0  where match_id = 'aaaaaaaa-0000-0000-0000-000000000007' and player_id = '44444444-4444-4444-4444-444444444444';
+
+update public.matches set status = 'completed'
+  where id in ('aaaaaaaa-0000-0000-0000-000000000006', 'aaaaaaaa-0000-0000-0000-000000000007');
