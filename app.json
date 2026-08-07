@@ -37,6 +37,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "acf1c351-31bb-468d-9426-cc5925b07fff"
+      }
+    },
+    "owner": "tschusters-team"
   }
 }
