@@ -24,28 +24,9 @@ const logoKeyframe = new Keyframe({
   },
 });
 
-const glowKeyframe = new Keyframe({
-  0: {
-    transform: [{ rotateZ: '-180deg' }, { scale: 0.8 }],
-    opacity: 0,
-  },
-  [DURATION / 1000]: {
-    transform: [{ rotateZ: '0deg' }, { scale: 1 }],
-    opacity: 1,
-    easing: Easing.elastic(0.7),
-  },
-  100: {
-    transform: [{ rotateZ: '7200deg' }],
-  },
-});
-
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>
-      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
-        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
-      </Animated.View>
-
       {/* No tinted plate behind the mark: the tile carries its own gold ring,
           and a coloured square behind it reads as a second, competing badge. */}
       <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
@@ -67,21 +48,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  glow: {
-    width: 201,
-    height: 201,
-    position: 'absolute',
-  },
   iconContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 128,
-    height: 128,
+    width: 176,
+    height: 176,
   },
   image: {
     position: 'absolute',
     // Square, unlike the wordmark this replaced, which was 76x71.
-    width: 104,
-    height: 104,
+    width: 160,
+    height: 160,
   },
 });
