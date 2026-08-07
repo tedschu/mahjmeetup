@@ -394,7 +394,9 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.three,
   },
   filterChip: {
-    paddingVertical: Spacing.one,
+    paddingVertical: Spacing.two,
+    minHeight: 40,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
   },
@@ -428,7 +430,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.one,
   },
   seatButton: {
-    paddingVertical: Spacing.one,
+    paddingVertical: Spacing.two,
+    minHeight: 40,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.four,
     borderRadius: Spacing.three,
   },

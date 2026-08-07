@@ -269,7 +269,9 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   scoreButton: {
-    paddingVertical: Spacing.one,
+    paddingVertical: Spacing.two,
+    minHeight: 40,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
   },

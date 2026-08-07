@@ -86,3 +86,12 @@ export const MaxContentWidth = 800;
  * in the bar, the 48px brand mark, plus the container's padding above and below.
  */
 export const WebTabBarInset = 80;
+
+/**
+ * Below this width the top bar cannot hold four labels and a brand mark, so the
+ * web navigation moves to the bottom of the screen the way the native tabs do.
+ */
+export const CompactBreakpoint = 700;
+
+/** Height of that bottom bar, used to inset content above it. */
+export const CompactTabBarHeight = 64;

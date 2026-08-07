@@ -7,21 +7,43 @@ import {
   TabListProps,
 } from 'expo-router/ui';
 import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
+import { Pressable, useWindowDimensions, View, StyleSheet } from 'react-native';
 
-import { ExternalLink } from './external-link';
 import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
 
-import { Colors, MaxContentWidth, Spacing, WebTabBarInset } from '@/constants/theme';
+import {
+  CompactBreakpoint,
+  CompactTabBarHeight,
+  MaxContentWidth,
+  Spacing,
+  WebTabBarInset,
+} from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+
+/**
+ * Four labels and a brand mark do not fit across a phone, so on narrow screens
+ * the navigation moves to the bottom of the window, where the native tabs
+ * already live and where a thumb can reach it.
+ */
+function useCompact() {
+  const { width } = useWindowDimensions();
+  return width < CompactBreakpoint;
+}
 
 export default function AppTabs() {
+  const compact = useCompact();
+
   return (
     <Tabs>
-      {/* Inset by the bar's height: it floats above the content, so without
-          this every page heading renders underneath it. */}
-      <TabSlot style={{ height: '100%', paddingTop: WebTabBarInset }} />
+      {/* The bar floats over the content, so the content has to be inset past
+          it — above on wide screens, below on narrow ones. */}
+      <TabSlot
+        style={{
+          height: '100%',
+          paddingTop: compact ? Spacing.three : WebTabBarInset,
+          paddingBottom: compact ? CompactTabBarHeight : 0,
+        }}
+      />
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="index" href="/" asChild>
@@ -43,22 +65,54 @@ export default function AppTabs() {
 }
 
 export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+  const compact = useCompact();
+  const theme = useTheme();
+
   return (
-    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
-      <ThemedView
-        type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
-        style={styles.tabButtonView}>
-        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
+    <Pressable
+      {...props}
+      style={({ pressed }) => [compact && styles.compactTrigger, pressed && styles.pressed]}>
+      {/* A gold rule marks the active tab rather than a filled shape: the
+          filter chips are filled pills, and the navigation should not read as
+          another row of filters. The rule sits above the label in the bottom
+          bar and below it in the top bar, so it always points at the edge the
+          bar is anchored to. Transparent when inactive keeps the row from
+          shifting as the selection moves. */}
+      <View
+        style={[
+          styles.tabButtonView,
+          compact && styles.compactTabButtonView,
+          compact
+            ? { borderTopColor: isFocused ? theme.accentGold : 'transparent' }
+            : { borderBottomColor: isFocused ? theme.accentGold : 'transparent' },
+        ]}>
+        <ThemedText
+          type="label"
+          themeColor={isFocused ? 'text' : 'textSecondary'}
+          numberOfLines={1}>
           {children}
         </ThemedText>
-      </ThemedView>
+      </View>
     </Pressable>
   );
 }
 
 export function CustomTabList(props: TabListProps) {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const compact = useCompact();
+  const theme = useTheme();
+
+  if (compact) {
+    return (
+      <View
+        {...props}
+        style={[
+          styles.compactContainer,
+          { backgroundColor: theme.background, borderColor: theme.rule },
+        ]}>
+        {props.children}
+      </View>
+    );
+  }
 
   return (
     <View {...props} style={styles.tabListContainer}>
@@ -74,20 +128,9 @@ export function CustomTabList(props: TabListProps) {
           accessibilityLabel="Mahjong Meetup"
         />
 
-        <ThemedView type="backgroundElement" style={styles.innerContainer}>
-          {props.children}
-
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={styles.externalPressable}>
-              <ThemedText type="link">Docs</ThemedText>
-              <SymbolView
-                tintColor={colors.text}
-                name={{ ios: 'arrow.up.right.square', web: 'link' }}
-                size={12}
-              />
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
+        {/* No pill around the tabs: the gold rule already marks the active one,
+            and a filled container made the navigation read as another card. */}
+        <View style={styles.innerContainer}>{props.children}</View>
       </View>
     </View>
   );
@@ -111,32 +154,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     gap: Spacing.three,
   },
-  innerContainer: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.five,
-    borderRadius: Spacing.five,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexGrow: 1,
-    gap: Spacing.two,
-  },
   brandMark: {
     width: 48,
     height: 48,
   },
-  pressed: {
-    opacity: 0.7,
+  innerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexGrow: 1,
+    gap: Spacing.four,
+  },
+  compactContainer: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    height: CompactTabBarHeight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.two,
+  },
+  /** Equal shares of the bar, so the four labels never crowd each other out. */
+  compactTrigger: {
+    flex: 1,
   },
   tabButtonView: {
-    paddingVertical: Spacing.one,
+    paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
-  },
-  externalPressable: {
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.one,
-    marginLeft: Spacing.three,
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  compactTabButtonView: {
+    paddingHorizontal: Spacing.one,
+    // Comfortably tappable; below this a thumb starts missing.
+    minHeight: 44,
+    borderBottomWidth: 0,
+    borderTopWidth: 2,
+    borderTopColor: 'transparent',
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });
