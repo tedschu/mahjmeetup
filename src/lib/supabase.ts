@@ -47,6 +47,10 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: CustomStorageAdapter,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    // Google sends the member back to the app with the auth code in the URL.
+    // On web the browser must read it; on native the deep link is handled by
+    // hand in the sign-in call, and leaving this on would double-handle it.
+    detectSessionInUrl: Platform.OS === 'web',
+    flowType: 'pkce',
   },
 });

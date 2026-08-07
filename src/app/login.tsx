@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, Alert, TouchableOpacity } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { signInWithGoogle } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -12,27 +13,44 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function signInWithEmail() {
     setLoading(true);
+    setError(null);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    if (error) Alert.alert('Error', error.message);
+    if (error) setError(error.message);
     setLoading(false);
   }
 
   async function signUpWithEmail() {
     setLoading(true);
-    const { data: { session }, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    if (error) Alert.alert('Error', error.message);
-    else if (!session) Alert.alert('Check Inbox', 'Please check your inbox for email verification!');
+    setError(null);
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.signUp({ email, password });
+    if (error) setError(error.message);
+    else if (!session) setError('Check your inbox to confirm your email address.');
     setLoading(false);
   }
+
+  async function continueWithGoogle() {
+    setLoading(true);
+    setError(null);
+    try {
+      await signInWithGoogle();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Google sign-in did not work.');
+    } finally {
+      // On web the page navigates away, so this only matters when it fails.
+      setLoading(false);
+    }
+  }
+
 
   return (
     <ThemedView style={styles.container}>
@@ -67,9 +85,18 @@ export default function LoginScreen() {
             <ThemedText style={styles.secondaryButtonText}>Create Account</ThemedText>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.secondaryButton, {marginTop: 24}]} disabled={loading} onPress={() => Alert.alert('Coming Soon', 'Google sign-in requires Google Cloud setup first!')}>
+          <TouchableOpacity
+            style={[styles.secondaryButton, { marginTop: 24 }]}
+            disabled={loading}
+            onPress={continueWithGoogle}>
             <ThemedText style={styles.secondaryButtonText}>Continue with Google</ThemedText>
           </TouchableOpacity>
+
+          {error ? (
+            <ThemedText type="small" style={styles.error}>
+              {error}
+            </ThemedText>
+          ) : null}
         </ThemedView>
       </SafeAreaView>
     </ThemedView>
@@ -77,6 +104,11 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  error: {
+    color: '#c0392b',
+    marginTop: 12,
+    textAlign: 'center',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
