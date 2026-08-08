@@ -19,11 +19,12 @@ import {
 } from '@/lib/matches';
 import { supabase } from '@/lib/supabase';
 
+// Scramble and League are gone: this screen only lists pick-up games now, so
+// every row was a Scramble and the League filter always came back empty.
 const FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'open', label: 'Open' },
-  { key: 'scramble', label: 'Scramble' },
-  { key: 'league', label: 'League' },
+  { key: 'supplies', label: 'Tiles provided' },
 ] as const;
 
 type FilterKey = (typeof FILTERS)[number]['key'];
@@ -32,10 +33,8 @@ function matchesFilter(match: Match, filter: FilterKey) {
   switch (filter) {
     case 'open':
       return match.status === 'open';
-    case 'scramble':
-      return !match.is_league;
-    case 'league':
-      return Boolean(match.is_league);
+    case 'supplies':
+      return Boolean(match.supplies_provided);
     default:
       return true;
   }

@@ -34,6 +34,143 @@ export type Database = {
   }
   public: {
     Tables: {
+      league_members: {
+        Row: {
+          joined_at: string
+          league_id: string
+          profile_id: string
+          role: string
+        }
+        Insert: {
+          joined_at?: string
+          league_id: string
+          profile_id: string
+          role?: string
+        }
+        Update: {
+          joined_at?: string
+          league_id?: string
+          profile_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_members_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "league_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "league_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "league_standings"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "league_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      league_sessions: {
+        Row: {
+          created_at: string
+          date_time: string
+          id: string
+          location: string
+          location_detail: string | null
+          season_id: string
+          sequence: number
+        }
+        Insert: {
+          created_at?: string
+          date_time: string
+          id?: string
+          location: string
+          location_detail?: string | null
+          season_id: string
+          sequence: number
+        }
+        Update: {
+          created_at?: string
+          date_time?: string
+          id?: string
+          location?: string
+          location_detail?: string | null
+          season_id?: string
+          sequence?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_sessions_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leagues: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string
+          id: string
+          invite_token: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          invite_token?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          invite_token?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leagues_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "leagues_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "league_standings"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "leagues_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       match_players: {
         Row: {
           joined_at: string
@@ -72,6 +209,13 @@ export type Database = {
             foreignKeyName: "match_players_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
+            referencedRelation: "league_standings"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "match_players_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -83,36 +227,42 @@ export type Database = {
           date_time: string
           host_id: string
           id: string
-          is_league: boolean | null
+          league_id: string | null
           location: string
           location_detail: string | null
           notes: string | null
+          session_id: string | null
           status: string | null
           supplies_provided: boolean | null
+          table_number: number | null
         }
         Insert: {
           created_at?: string
           date_time: string
           host_id: string
           id?: string
-          is_league?: boolean | null
+          league_id?: string | null
           location: string
           location_detail?: string | null
           notes?: string | null
+          session_id?: string | null
           status?: string | null
           supplies_provided?: boolean | null
+          table_number?: number | null
         }
         Update: {
           created_at?: string
           date_time?: string
           host_id?: string
           id?: string
-          is_league?: boolean | null
+          league_id?: string | null
           location?: string
           location_detail?: string | null
           notes?: string | null
+          session_id?: string | null
           status?: string | null
           supplies_provided?: boolean | null
+          table_number?: number | null
         }
         Relationships: [
           {
@@ -126,7 +276,28 @@ export type Database = {
             foreignKeyName: "matches_host_id_fkey"
             columns: ["host_id"]
             isOneToOne: false
+            referencedRelation: "league_standings"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "matches_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "league_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -161,6 +332,38 @@ export type Database = {
         }
         Relationships: []
       }
+      seasons: {
+        Row: {
+          created_at: string
+          id: string
+          league_id: string
+          name: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          league_id: string
+          name: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          league_id?: string
+          name?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seasons_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       leaderboard: {
@@ -175,13 +378,40 @@ export type Database = {
         }
         Relationships: []
       }
+      league_standings: {
+        Row: {
+          avatar_url: string | null
+          average_placement: number | null
+          average_points: number | null
+          games_played: number | null
+          league_id: string | null
+          name: string | null
+          player_id: string | null
+          total_points: number | null
+          wins: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_members_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      draw_league_session: { Args: { p_session_id: string }; Returns: number }
       enter_match_scores: {
         Args: { p_match_id: string; p_scores: Json }
         Returns: undefined
       }
+      is_league_member: { Args: { p_league: string }; Returns: boolean }
+      is_league_organizer: { Args: { p_league: string }; Returns: boolean }
+      join_league_with_token: { Args: { p_token: string }; Returns: string }
       match_seat_limit: { Args: never; Returns: number }
+      new_invite_token: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never

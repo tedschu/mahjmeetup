@@ -4,7 +4,9 @@ import { supabase } from './supabase';
 export const SEATS_PER_MATCH = 4;
 
 const MATCH_SELECT = `
-  id, date_time, location, location_detail, notes, supplies_provided, is_league, status, host_id,
+  id, date_time, location, location_detail, notes, supplies_provided, status, host_id,
+  league_id, session_id, table_number,
+  league:leagues (id, name, color),
   host:profiles!matches_host_id_fkey (id, name),
   players:match_players (player_id, score, profile:profiles (id, name, avatar_url))
 `;
@@ -18,9 +20,15 @@ export type Match = {
   location_detail: string | null;
   notes: string | null;
   supplies_provided: boolean | null;
-  is_league: boolean | null;
   status: string | null;
   host_id: string;
+  /** The league this counts toward, or null for a pick-up game. At most one. */
+  league_id: string | null;
+  /** Set only for tables produced by a league draw. */
+  session_id: string | null;
+  /** Which table of the session this is, when it came from a draw. */
+  table_number: number | null;
+  league: { id: string; name: string; color: string } | null;
   host: { id: string; name: string | null } | null;
   players: {
     player_id: string;
@@ -137,7 +145,7 @@ export type NewMatch = {
   location_detail: string | null;
   notes: string | null;
   supplies_provided: boolean;
-  is_league: boolean;
+  league_id: string | null;
 };
 
 /**
@@ -155,11 +163,19 @@ export async function createMatch(hostId: string, match: NewMatch): Promise<stri
   return data.id;
 }
 
-/** Upcoming matches still accepting players or already closed, soonest first. */
+/**
+ * Upcoming pick-up matches, soonest first.
+ *
+ * League matches are deliberately excluded. Their seats are dealt by the draw
+ * rather than claimed, so offering a Join button on one would be a lie — and a
+ * non-member could take a seat in a league they are not in. They appear on the
+ * league's own screen and in My Matches.
+ */
 export async function fetchUpcomingMatches(): Promise<Match[]> {
   const { data, error } = await supabase
     .from('matches')
     .select(MATCH_SELECT)
+    .is('league_id', null)
     .in('status', ['open', 'full'])
     .gte('date_time', new Date().toISOString())
     .order('date_time');

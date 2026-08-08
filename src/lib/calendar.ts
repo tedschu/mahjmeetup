@@ -26,7 +26,7 @@ export function googleCalendarUrl(match: Match) {
   const start = new Date(match.date_time);
   const end = new Date(start.getTime() + AssumedHours * 60 * 60 * 1000);
 
-  const details = [match.notes, match.is_league ? 'Counts toward the league.' : null]
+  const details = [match.notes, match.league ? `Counts toward ${match.league.name}.` : null]
     .filter(Boolean)
     .join('\n\n');
 

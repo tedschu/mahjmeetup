@@ -47,6 +47,11 @@ export default function AppTabs() {
               My Matches
             </TabButton>
           </TabTrigger>
+          <TabTrigger name="leagues" href="/leagues" asChild>
+            <TabButton icon="people" compactLabel="Leagues">
+              Leagues
+            </TabButton>
+          </TabTrigger>
           <TabTrigger name="leaderboard" href="/leaderboard" asChild>
             <TabButton icon="standings" compactLabel="Ranking">
               Leaderboard
@@ -180,7 +185,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexGrow: 1,
-    gap: Spacing.four,
+    // Tightened from Spacing.four: five labels and the brand mark no longer fit
+    // the content column at the wider gap.
+    gap: Spacing.two,
   },
   compactContainer: {
     position: 'absolute',

@@ -7,11 +7,29 @@ import { Session } from '@supabase/supabase-js';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
+import { joinLeagueWithToken, takePendingInvite } from '@/lib/leagues';
 import { syncMyAvatar } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import LoginScreen from './login';
 
 SplashScreen.preventAutoHideAsync();
+
+/**
+ * Finishes a join that was interrupted by signing in. Google returns people to
+ * the app's origin rather than to the invite link they opened, so the token is
+ * held and cashed in here instead.
+ */
+async function redeemInvite() {
+  const token = await takePendingInvite();
+  if (!token) return;
+
+  try {
+    await joinLeagueWithToken(token);
+  } catch {
+    // The invite screen reports failures; here it would interrupt a sign-in for
+    // something the member can retry by opening the link again.
+  }
+}
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -23,14 +41,20 @@ export default function TabLayout() {
       setSession(session);
       // Publishes this member's Google photo to their profile so the group can
       // see it on match cards. Once per session, not per screen.
-      if (session?.user) syncMyAvatar();
+      if (session?.user) {
+        syncMyAvatar();
+        redeemInvite();
+      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session?.user) syncMyAvatar();
+      if (session?.user) {
+        syncMyAvatar();
+        redeemInvite();
+      }
     });
 
     return () => subscription.unsubscribe();

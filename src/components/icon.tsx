@@ -30,6 +30,15 @@ const Paths: Record<string, string> = {
   pencil: '<path d="M4 20h4L20 8l-4-4L4 16z"/><path d="m14.5 5.5 4 4"/>',
   /** Enter scores — a scorecard's ruled columns. */
   scorecard: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M15 10v10"/>',
+  /** Leagues — a group of people rather than one. */
+  people:
+    '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.4 2.9-5.3 6.5-5.3s6.5 1.9 6.5 5.3"/><path d="M16 5.2a3.5 3.5 0 0 1 0 5.6M18 14.2c2.1.6 3.5 2.1 3.5 4.3"/>',
+  /** Draw the tables — two paths crossing over, the usual shuffle mark. */
+  shuffle:
+    '<path d="M3 7h3.5l3 4M21 7h-3.5l-8 10H3M21 17h-3.5"/><path d="m18 4 3 3-3 3M18 14l3 3-3 3"/>',
+  /** Remove. */
+  trash:
+    '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l.8 12.5A1.5 1.5 0 0 0 8.8 21h6.4a1.5 1.5 0 0 0 1.5-1.5L17.5 7"/>',
 };
 
 export type IconName = keyof typeof Paths;

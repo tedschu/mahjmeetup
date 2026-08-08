@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,8 +15,9 @@ import {
 import { PlaceAutocompleteInput } from '@/components/place-autocomplete-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { LeagueColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { fetchMyLeagues, type MyLeague } from '@/lib/leagues';
 import {
   cancelMatch,
   createMatch,
@@ -85,10 +86,29 @@ export function MatchSheet({
   const [locationDetail, setLocationDetail] = useState(match?.location_detail ?? null);
   const [notes, setNotes] = useState(match?.notes ?? '');
   const [supplies, setSupplies] = useState(match?.supplies_provided ?? false);
-  const [isLeague, setIsLeague] = useState(match?.is_league ?? false);
+  const [leagueId, setLeagueId] = useState<string | null>(match?.league_id ?? null);
+  const [leagues, setLeagues] = useState<MyLeague[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmingRemoval, setIsConfirmingRemoval] = useState(false);
+
+  // Loaded rather than passed in, because the sheet is opened from two screens
+  // and neither has a reason to know about leagues.
+  useEffect(() => {
+    if (!hostId) return;
+    let active = true;
+
+    fetchMyLeagues(hostId)
+      .then((found) => {
+        if (active) setLeagues(found);
+      })
+      // A league picker that fails to load should not block posting a pick-up game.
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [hostId]);
 
   const at = toTimestamp(date, time);
   const canSave = at !== null && location.trim().length > 0 && !isSaving;
@@ -113,7 +133,7 @@ export function MatchSheet({
       location_detail: locationDetail?.trim() || null,
       notes: notes.trim() || null,
       supplies_provided: supplies,
-      is_league: isLeague,
+      league_id: leagueId,
     };
 
     setIsSaving(true);
@@ -245,10 +265,51 @@ export function MatchSheet({
               <Switch value={supplies} onValueChange={setSupplies} />
             </View>
 
-            <View style={styles.toggle}>
-              <ThemedText style={styles.toggleLabel}>Counts toward the league</ThemedText>
-              <Switch value={isLeague} onValueChange={setIsLeague} />
-            </View>
+            {/* A picker rather than a toggle: "counts toward the league" was
+                never able to say which one. Hidden entirely when you are in no
+                leagues, where the question is meaningless. */}
+            {leagues.length > 0 ? (
+              <View style={styles.field}>
+                <ThemedText type="label" themeColor="textSecondary">
+                  Counts toward
+                </ThemedText>
+                <View style={styles.leagueChips}>
+                  <Pressable
+                    onPress={() => setLeagueId(null)}
+                    style={({ pressed }) => pressed && styles.pressed}>
+                    <ThemedView
+                      type={leagueId === null ? 'backgroundSelected' : 'background'}
+                      style={[styles.leagueChip, { borderColor: theme.rule }]}>
+                      <ThemedText
+                        type="label"
+                        themeColor={leagueId === null ? 'text' : 'textSecondary'}>
+                        Nothing
+                      </ThemedText>
+                    </ThemedView>
+                  </Pressable>
+
+                  {leagues.map((league) => {
+                    const selected = league.id === leagueId;
+                    const tint = LeagueColors[league.color] ?? theme.accent;
+                    return (
+                      <Pressable
+                        key={league.id}
+                        onPress={() => setLeagueId(league.id)}
+                        style={({ pressed }) => pressed && styles.pressed}>
+                        <ThemedView
+                          type={selected ? 'backgroundSelected' : 'background'}
+                          style={[styles.leagueChip, { borderColor: selected ? tint : theme.rule }]}>
+                          <View style={[styles.leagueDot, { backgroundColor: tint }]} />
+                          <ThemedText type="label" style={{ color: tint }}>
+                            {league.name}
+                          </ThemedText>
+                        </ThemedView>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
 
             {error ? (
               <ThemedText type="small" style={styles.error}>
@@ -377,6 +438,26 @@ const styles = StyleSheet.create({
   },
   detail: {
     marginTop: -Spacing.two,
+  },
+  leagueChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  leagueChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    minHeight: 40,
+    borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  leagueDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   toggle: {
     flexDirection: 'row',

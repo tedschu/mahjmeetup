@@ -4,7 +4,7 @@ import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Avatar, EmptySeat } from '@/components/avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { CardShadow, Spacing } from '@/constants/theme';
+import { CardShadow, LeagueColors, Spacing, type LeagueColor } from '@/constants/theme';
 import { useTheme, type Theme } from '@/hooks/use-theme';
 import { formatWhen, SEATS_PER_MATCH, type Match } from '@/lib/matches';
 
@@ -192,10 +192,23 @@ export function MatchCard({
         <ThemedText type="defaultSemiBold" themeColor="textSecondary">
           {formatWhen(match.date_time)}
         </ThemedText>
-        {match.is_league ? (
-          <ThemedText type="label" themeColor="accent">
-            League
-          </ThemedText>
+        {/* Named and coloured, so you can tell at a glance which league a table
+            belongs to rather than just that it belongs to one. */}
+        {match.league ? (
+          <View style={styles.leagueTag}>
+            <View
+              style={[
+                styles.leagueDot,
+                { backgroundColor: LeagueColors[match.league.color as LeagueColor] ?? theme.accent },
+              ]}
+            />
+            <ThemedText
+              type="label"
+              style={{ color: LeagueColors[match.league.color as LeagueColor] ?? theme.accent }}>
+              {match.league.name}
+              {match.table_number ? ` · Table ${match.table_number}` : ''}
+            </ThemedText>
+          </View>
         ) : null}
         {match.supplies_provided ? (
           <ThemedText type="label" themeColor="textSecondary">
@@ -308,6 +321,16 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  leagueTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  leagueDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   actionRow: {
     flexDirection: 'row',

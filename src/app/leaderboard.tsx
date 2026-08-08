@@ -4,23 +4,34 @@ import {
   ActivityIndicator,
   FlatList,
   Platform,
+  Pressable,
   RefreshControl,
   StyleSheet,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, CardShadow, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  BottomTabInset,
+  CardShadow,
+  LeagueColors,
+  MaxContentWidth,
+  Spacing,
+} from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchLeaderboard, type LeaderboardRow } from '@/lib/leaderboard';
+import { fetchLeagueStandings, fetchMyLeagues, type MyLeague } from '@/lib/leagues';
 import { supabase } from '@/lib/supabase';
 
-type RankedRow = LeaderboardRow & { rank: number };
+type Scope = { id: string | null; label: string; tint: string | null };
+
+type RankedRow = LeaderboardRow & { rank: number; avatar_url?: string | null };
 
 /** Equal totals share a rank, and the next rank skips accordingly (1, 2, 2, 4). */
-function withRanks(rows: LeaderboardRow[]): RankedRow[] {
+function withRanks<T extends LeaderboardRow>(rows: T[]): (T & { rank: number })[] {
   let lastPoints: number | null = null;
   let lastRank = 0;
 
@@ -65,6 +76,12 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
         {unplayed ? '—' : row.rank}
       </ThemedText>
 
+      <Avatar
+        person={{ name: row.name, avatar_url: row.avatar_url ?? null }}
+        size={30}
+        ring={theme.rule}
+      />
+
       <View style={styles.identity}>
         <ThemedText type="defaultSemiBold" numberOfLines={1}>
           {row.name ?? 'Unnamed member'}
@@ -93,8 +110,13 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
 }
 
 export default function LeaderboardScreen() {
+  const theme = useTheme();
   const [rows, setRows] = useState<RankedRow[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [leagues, setLeagues] = useState<MyLeague[]>([]);
+  // null means every match, league or not. Leagues are picked by id.
+  const [scopeId, setScopeId] = useState<string | null>(null);
+  const [scopeChosen, setScopeChosen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -106,12 +128,21 @@ export default function LeaderboardScreen() {
       } = await supabase.auth.getUser();
 
       setUserId(user?.id ?? null);
-      setRows(withRanks(await fetchLeaderboard()));
+
+      const mine = user ? await fetchMyLeagues(user.id) : [];
+      setLeagues(mine);
+
+      // Default to the first league, because league standings are the ones with
+      // stakes. Falls back to everything for someone not in a league yet.
+      const scope = scopeChosen ? scopeId : (mine[0]?.id ?? null);
+      if (!scopeChosen) setScopeId(scope);
+
+      setRows(scope === null ? withRanks(await fetchLeaderboard()) : withRanks(await fetchLeagueStandings(scope)));
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load the standings.');
     }
-  }, []);
+  }, [scopeChosen, scopeId]);
 
   // Standings move whenever a host enters scores, so refetch on focus.
   useFocusEffect(
@@ -136,6 +167,17 @@ export default function LeaderboardScreen() {
   }, [load]);
 
   const playedCount = rows.filter((row) => row.games_played > 0).length;
+  const activeLeague = leagues.find((league) => league.id === scopeId) ?? null;
+
+  // Only worth showing when there is more than one thing to pick between.
+  const scopes: Scope[] = [
+    { id: null, label: 'All matches', tint: null },
+    ...leagues.map((league) => ({
+      id: league.id,
+      label: league.name,
+      tint: LeagueColors[league.color] ?? null,
+    })),
+  ];
 
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
@@ -146,11 +188,47 @@ export default function LeaderboardScreen() {
               ? 'No cards recorded'
               : `${playedCount} ${playedCount === 1 ? 'member' : 'members'} playing`}
           </ThemedText>
-          <ThemedText type="title">Leaderboard</ThemedText>
+          <ThemedText type="title">{activeLeague ? activeLeague.name : 'Leaderboard'}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-            Ranked by total points
+            {activeLeague ? 'League standings, by total points' : 'Every match, by total points'}
           </ThemedText>
         </View>
+
+        {/* One chip per league you are in, plus everything. Leagues you are not
+            in are not offered, and RLS would not return them anyway. */}
+        {scopes.length > 1 ? (
+          <View style={styles.scopes}>
+            {scopes.map((scope) => {
+              const selected = scope.id === scopeId;
+              return (
+                <Pressable
+                  key={scope.id ?? 'all'}
+                  onPress={() => {
+                    setScopeChosen(true);
+                    setScopeId(scope.id);
+                  }}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedView
+                    type={selected ? 'backgroundSelected' : 'background'}
+                    style={[
+                      styles.scopeChip,
+                      { borderColor: selected && scope.tint ? scope.tint : theme.rule },
+                    ]}>
+                    {scope.tint ? (
+                      <View style={[styles.scopeDot, { backgroundColor: scope.tint }]} />
+                    ) : null}
+                    <ThemedText
+                      type="label"
+                      themeColor={selected ? 'text' : 'textSecondary'}
+                      style={selected && scope.tint ? { color: scope.tint } : undefined}>
+                      {scope.label}
+                    </ThemedText>
+                  </ThemedView>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
 
         {error ? (
           <ThemedText type="small" style={styles.errorBanner}>
@@ -215,6 +293,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingBottom: BottomTabInset + Spacing.four,
     gap: Spacing.two,
+  },
+  scopes: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.three,
+  },
+  scopeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    minHeight: 36,
+    borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  scopeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   row: {
     flexDirection: 'row',

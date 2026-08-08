@@ -93,6 +93,26 @@ export const MaxContentWidth = 800;
 export const CardShadow = '0px 2px 12px rgba(20, 45, 78, 0.1)';
 
 /**
+ * Colours a league can be given, so its matches are recognisable at a glance.
+ *
+ * The database stores the token, not the hex, so what each one looks like is
+ * settled here and can change without touching data. Two are the app's own
+ * accents; the rest are muted enough to sit beside them without competing.
+ */
+export const LeagueColors = {
+  blue: '#3d6f9e',
+  orange: '#f26a36',
+  gold: '#b8860b',
+  green: '#4a8c6f',
+  plum: '#8c4a6f',
+  teal: '#3d8c8c',
+} as const;
+
+export type LeagueColor = keyof typeof LeagueColors;
+
+export const LeagueColorNames = Object.keys(LeagueColors) as LeagueColor[];
+
+/**
  * Height of the floating web tab bar. It is positioned absolutely so it can
  * overlay scrolling content, which means page content has to be inset by this
  * much or headings slide underneath it. The height is set by the tallest thing

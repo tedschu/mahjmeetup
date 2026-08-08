@@ -30,6 +30,16 @@ values
   ('00000000-0000-0000-0000-000000000000', '44444444-4444-4444-4444-444444444444',
    'authenticated', 'authenticated', 'jian@example.com', crypt('password123', gen_salt('bf')),
    now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Jian"}',
+   '', '', '', '', '', ''),
+  -- Five and six exist so a league draw has to split across two tables, which is
+  -- the case worth having in front of you while working on it.
+  ('00000000-0000-0000-0000-000000000000', '55555555-5555-5555-5555-555555555555',
+   'authenticated', 'authenticated', 'alex@example.com', crypt('password123', gen_salt('bf')),
+   now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Alex Ruiz"}',
+   '', '', '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', '66666666-6666-6666-6666-666666666666',
+   'authenticated', 'authenticated', 'priya@example.com', crypt('password123', gen_salt('bf')),
+   now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Priya Nair"}',
    '', '', '', '', '', '');
 
 update public.profiles set town = 'Brookline', experience_level = 'intermediate'
@@ -43,17 +53,17 @@ update public.profiles set town = 'Somerville', experience_level = 'intermediate
 
 -- Matches: one open that Ted hosts, one Ted joined but does not host, and one
 -- completed with scores, so My Matches has both sections populated.
-insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, is_league, status)
+insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, status)
 values
   ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-   now() + interval '3 days', 'Ted''s House', 'Parking on the street.', true, false, 'open'),
+   now() + interval '3 days', 'Ted''s House', 'Parking on the street.', true, 'open'),
   ('aaaaaaaa-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222',
-   now() + interval '6 days', 'Community Center', null, false, true, 'open'),
+   now() + interval '6 days', 'Community Center', null, false, 'open'),
   -- Starts open so players can be seated; closed out below, the way a real
   -- match progresses. enforce_match_capacity refuses to seat anyone into a
   -- match that is already completed.
   ('aaaaaaaa-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
-   now() - interval '8 days', 'Mei''s Place', 'Great night.', true, false, 'open');
+   now() - interval '8 days', 'Mei''s Place', 'Great night.', true, 'open');
 
 -- Hosts are seated automatically by seat_host_after_match_insert, so only the
 -- guests are inserted here.
@@ -84,12 +94,12 @@ update public.matches set status = 'completed'
 
 -- A fourth match with an empty seat that Ted is NOT in, so Browse has something
 -- joinable, plus one that is already full.
-insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, is_league, status)
+insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, status)
 values
   ('aaaaaaaa-0000-0000-0000-000000000004', '33333333-3333-3333-3333-333333333333',
-   now() + interval '9 days', 'Newton Library', 'Beginners welcome.', true, false, 'open'),
+   now() + interval '9 days', 'Newton Library', 'Beginners welcome.', true, 'open'),
   ('aaaaaaaa-0000-0000-0000-000000000005', '22222222-2222-2222-2222-222222222222',
-   now() + interval '12 days', 'Brookline Senior Center', null, false, true, 'open');
+   now() + interval '12 days', 'Brookline Senior Center', null, false, 'open');
 
 insert into public.match_players (match_id, player_id)
 values
@@ -104,12 +114,12 @@ values
 
 -- Two more finished four-player nights, so the leaderboard has real history and
 -- no single match decides the standings.
-insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, is_league, status)
+insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, status)
 values
   ('aaaaaaaa-0000-0000-0000-000000000006', '11111111-1111-1111-1111-111111111111',
-   now() - interval '21 days', 'Ted''s House', null, true, false, 'open'),
+   now() - interval '21 days', 'Ted''s House', null, true, 'open'),
   ('aaaaaaaa-0000-0000-0000-000000000007', '22222222-2222-2222-2222-222222222222',
-   now() - interval '14 days', 'Community Center', null, false, true, 'open');
+   now() - interval '14 days', 'Community Center', null, false, 'open');
 
 insert into public.match_players (match_id, player_id)
 values
@@ -134,3 +144,52 @@ update public.match_players set score = 0  where match_id = 'aaaaaaaa-0000-0000-
 
 update public.matches set status = 'completed'
   where id in ('aaaaaaaa-0000-0000-0000-000000000006', 'aaaaaaaa-0000-0000-0000-000000000007');
+
+-- A league with six members, so the draw has to split them across two tables.
+-- Ted organizes it; seat_league_creator_after_insert makes that happen, so only
+-- the other five are inserted below.
+insert into public.leagues (id, name, color, created_by, invite_token)
+values (
+  'bbbbbbbb-0000-0000-0000-000000000001',
+  'Fox Valley League',
+  'gold',
+  '11111111-1111-1111-1111-111111111111',
+  'seed-invite-1'
+);
+
+insert into public.league_members (league_id, profile_id, role)
+values
+  ('bbbbbbbb-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'member'),
+  ('bbbbbbbb-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', 'member'),
+  ('bbbbbbbb-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444', 'member'),
+  ('bbbbbbbb-0000-0000-0000-000000000001', '55555555-5555-5555-5555-555555555555', 'member'),
+  ('bbbbbbbb-0000-0000-0000-000000000001', '66666666-6666-6666-6666-666666666666', 'member');
+
+-- A second league Ted is NOT in, to prove the standings switcher only offers the
+-- leagues you belong to and that RLS hides the rest.
+insert into public.leagues (id, name, color, created_by, invite_token)
+values (
+  'bbbbbbbb-0000-0000-0000-000000000002',
+  'Tuesday Nighters',
+  'plum',
+  '22222222-2222-2222-2222-222222222222',
+  'seed-invite-2'
+);
+
+insert into public.seasons (id, league_id, name)
+values (
+  'cccccccc-0000-0000-0000-000000000001',
+  'bbbbbbbb-0000-0000-0000-000000000001',
+  'Fall 2026'
+);
+
+-- Six meetups, the shape the season was described in. Left undrawn so the draw
+-- can be exercised from the app.
+insert into public.league_sessions (season_id, sequence, date_time, location, location_detail)
+select
+  'cccccccc-0000-0000-0000-000000000001',
+  n,
+  date_trunc('hour', now()) + (n * interval '7 days') + interval '19 hours',
+  'Geneva Public Library District',
+  'South 7th Street, Geneva, IL, USA'
+from generate_series(1, 6) as g(n);
