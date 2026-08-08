@@ -229,9 +229,9 @@ const styles = StyleSheet.create({
   raised: Platform.select({
     android: { elevation: 2 },
     default: {
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.06,
-      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.09,
+      shadowRadius: 12,
     },
   }),
   rank: {

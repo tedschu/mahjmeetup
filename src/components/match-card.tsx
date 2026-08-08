@@ -248,12 +248,12 @@ const styles = StyleSheet.create({
   raised: Platform.select({
     android: { elevation: 2 },
     default: {
-      // Deliberately faint. The card already separates from the page by being
-      // white on a tint; the shadow only has to suggest that it sits on top,
-      // and anything heavier starts to look like a dialog.
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.06,
-      shadowRadius: 6,
+      // Wide and faint rather than tight and dark: spreading a low opacity over
+      // a larger radius reads as a lift you notice without seeing an edge. At
+      // 6px it was too tight to register at all against the tinted page.
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.09,
+      shadowRadius: 12,
     },
   }),
   /** Full, canceled and played matches step back rather than competing. */
