@@ -59,14 +59,32 @@ does not depend on nobody trying:
 npx supabase secrets set GOOGLE_MAPS_API_KEY=<the key>
 ```
 
-Optionally confine suggestions to particular countries:
+Then tell it where the group plays, as `latitude,longitude,radiusMetres`:
+
+```bash
+npx supabase secrets set PLACES_BIAS=41.8875,-88.3054,50000
+```
+
+This matters more than it looks. Requests leave from a Supabase edge server, not
+from the member's phone, so Google's own IP-based biasing points at whatever
+region that server sits in. Without a bias, typing "Geneva" offers Geneva NY and
+Geneva-on-the-Lake ahead of the one down the road.
+
+It is a bias, not a restriction: results outside the circle rank lower but are
+still offered, so a match proposed while travelling remains findable. Google caps
+the radius at 50,000 m. A malformed value is logged and ignored rather than
+throwing — a typo should cost the ranking hint, not every suggestion.
+
+A bias breaks ties; it does not override prominence. A bare "public library"
+still returns famous libraries nationwide. That is fine, because nobody proposes
+a match at "public library" — "Geneva public lib" puts Geneva Public Library
+District first.
+
+Optionally confine suggestions to particular countries as well:
 
 ```bash
 npx supabase secrets set PLACES_REGION_CODES=US
 ```
-
-Unset, Google biases suggestions by the caller's region, which is usually what
-you want.
 
 ### 4. Deploy the function
 

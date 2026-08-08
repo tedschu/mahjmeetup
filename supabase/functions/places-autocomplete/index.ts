@@ -57,6 +57,39 @@ function bad(status: number, error: string) {
   return Response.json({ error }, { status });
 }
 
+/**
+ * Reads `PLACES_BIAS` as `latitude,longitude,radiusMetres`, e.g.
+ * `41.8875,-88.3054,50000` for the Fox Valley.
+ *
+ * A bias, not a restriction: results outside the circle are ranked lower but
+ * still offered, so a match proposed while travelling is still findable.
+ *
+ * Returns undefined for anything malformed rather than throwing. A typo in a
+ * secret should cost you the ranking hint, not every suggestion.
+ */
+function parseBias(raw: string | undefined) {
+  if (!raw) return undefined;
+
+  const [latitude, longitude, radius] = raw.split(',').map((part) => Number(part.trim()));
+
+  const valid =
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    Number.isFinite(radius) &&
+    Math.abs(latitude) <= 90 &&
+    Math.abs(longitude) <= 180 &&
+    // Google rejects anything outside this range outright.
+    radius > 0 &&
+    radius <= 50_000;
+
+  if (!valid) {
+    console.error('Ignoring malformed PLACES_BIAS; expected "lat,lng,radiusMetres"');
+    return undefined;
+  }
+
+  return { circle: { center: { latitude, longitude }, radius } };
+}
+
 export default {
   fetch: withSupabase({ auth: 'user' }, async (req) => {
     const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
@@ -91,6 +124,12 @@ export default {
       .map((code) => code.trim())
       .filter(Boolean);
 
+    // Requests leave from an edge server rather than from the member's device,
+    // so Google's own IP-based biasing points at the wrong place. Naming where
+    // the group actually plays puts nearby towns and venues at the top of the
+    // list, where they belong.
+    const locationBias = parseBias(Deno.env.get('PLACES_BIAS'));
+
     // No session token: tokens only change billing when a session ends in a
     // Place Details call, and this proxy never makes one — the prediction text
     // is the whole answer. Add one alongside Place Details if coordinates are
@@ -108,6 +147,7 @@ export default {
           input: trimmed,
           ...(includedPrimaryTypes ? { includedPrimaryTypes } : {}),
           ...(regionCodes?.length ? { includedRegionCodes: regionCodes } : {}),
+          ...(locationBias ? { locationBias } : {}),
         }),
         signal: AbortSignal.timeout(UpstreamTimeoutMs),
       });
