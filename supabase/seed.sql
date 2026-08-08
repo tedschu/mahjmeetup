@@ -189,7 +189,10 @@ insert into public.league_sessions (season_id, sequence, date_time, location, lo
 select
   'cccccccc-0000-0000-0000-000000000001',
   n,
-  date_trunc('hour', now()) + (n * interval '7 days') + interval '19 hours',
+  -- 7pm local. Truncating a UTC now() and adding 19 hours lands at 6am in
+  -- Chicago, so the day is trimmed in the target zone and converted back.
+  (date_trunc('day', now() at time zone 'America/Chicago')
+    + (n * interval '7 days') + interval '19 hours') at time zone 'America/Chicago',
   'Geneva Public Library District',
   'South 7th Street, Geneva, IL, USA'
 from generate_series(1, 6) as g(n);

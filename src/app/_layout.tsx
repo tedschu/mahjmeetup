@@ -7,7 +7,12 @@ import { Session } from '@supabase/supabase-js';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
-import { joinLeagueWithToken, takePendingInvite } from '@/lib/leagues';
+import {
+  inviteTokenFromUrl,
+  joinLeagueWithToken,
+  rememberPendingInvite,
+  takePendingInvite,
+} from '@/lib/leagues';
 import { syncMyAvatar } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import LoginScreen from './login';
@@ -15,9 +20,15 @@ import LoginScreen from './login';
 SplashScreen.preventAutoHideAsync();
 
 /**
- * Finishes a join that was interrupted by signing in. Google returns people to
- * the app's origin rather than to the invite link they opened, so the token is
- * held and cashed in here instead.
+ * Cashes in an invite once there is a session.
+ *
+ * Two cases arrive here. Someone already signed in who opens an invite link, and
+ * someone who had to sign in first — Google returns people to the app's origin
+ * rather than to the link they followed, so the token is stashed on the way past
+ * and redeemed on the way back.
+ *
+ * Silent on failure. A bad or already-used invite is not worth interrupting a
+ * sign-in over, and re-opening the link reports it properly.
  */
 async function redeemInvite() {
   const token = await takePendingInvite();
@@ -26,8 +37,7 @@ async function redeemInvite() {
   try {
     await joinLeagueWithToken(token);
   } catch {
-    // The invite screen reports failures; here it would interrupt a sign-in for
-    // something the member can retry by opening the link again.
+    // Deliberately ignored; see above.
   }
 }
 
@@ -37,7 +47,17 @@ export default function TabLayout() {
   const [fontsLoaded] = useFonts({ ArchivoNarrow_600SemiBold });
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    (async () => {
+      // Stashed before the session is even known, because a signed-out visitor
+      // gets sent to the login screen and the token would be gone by the time
+      // they came back.
+      const fromUrl = inviteTokenFromUrl();
+      if (fromUrl) await rememberPendingInvite(fromUrl);
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       setSession(session);
       // Publishes this member's Google photo to their profile so the group can
       // see it on match cards. Once per session, not per screen.
@@ -45,7 +65,7 @@ export default function TabLayout() {
         syncMyAvatar();
         redeemInvite();
       }
-    });
+    })();
 
     const {
       data: { subscription },

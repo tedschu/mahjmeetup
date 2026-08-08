@@ -174,7 +174,9 @@ export function MatchCard({
       ]}>
       <View style={styles.topRow}>
         <View style={styles.titleBlock}>
-          <ThemedText type="subtitle" numberOfLines={1}>
+          {/* Two lines: a real venue name plus a town does not fit one at phone
+              width, and "Geneva Public Library Dist…" is not a venue. */}
+          <ThemedText type="subtitle" numberOfLines={2}>
             {match.location}
           </ThemedText>
           {match.location_detail ? (

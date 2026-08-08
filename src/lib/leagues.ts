@@ -241,16 +241,21 @@ export async function fetchLeagueStandings(leagueId: string): Promise<LeagueStan
 /**
  * The link that adds someone to a league.
  *
- * Built from the running origin on web so a link copied from localhost points at
+ * The token rides as a query parameter on /leagues rather than as its own
+ * /join/<token> route. `expo-router/ui` Tabs only routes what has a TabTrigger,
+ * so a standalone route silently fell through to the first tab — the link
+ * appeared to work and quietly did nothing.
+ *
+ * Built from the running origin on web, so a link copied from localhost points at
  * localhost and one copied from the deployed site points there. Native has no
- * origin to read, so it falls back to the production host — a link shared from a
- * phone has to work for whoever receives it.
+ * origin to read and falls back to the production host, because a link shared
+ * from a phone has to work for whoever receives it.
  */
 export function inviteUrlFor(league: League) {
   const origin =
     Platform.OS === 'web' ? window.location.origin : 'https://tschusters-team-mahjong.expo.app';
 
-  return `${origin}/join/${league.invite_token}`;
+  return `${origin}/leagues?invite=${league.invite_token}`;
 }
 
 /**
@@ -262,6 +267,17 @@ export function inviteUrlFor(league: League) {
  * join finish itself once there is a session.
  */
 const PendingInviteKey = 'pending-league-invite';
+
+/** Reads an invite token off the current URL, where an invite link puts it. */
+export function inviteTokenFromUrl(): string | null {
+  if (Platform.OS !== 'web') return null;
+
+  try {
+    return new URL(window.location.href).searchParams.get('invite');
+  } catch {
+    return null;
+  }
+}
 
 export async function rememberPendingInvite(token: string) {
   try {
