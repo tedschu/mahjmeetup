@@ -7,6 +7,7 @@ import { Session } from '@supabase/supabase-js';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
+import { syncMyAvatar } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import LoginScreen from './login';
 
@@ -20,12 +21,16 @@ export default function TabLayout() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      // Publishes this member's Google photo to their profile so the group can
+      // see it on match cards. Once per session, not per screen.
+      if (session?.user) syncMyAvatar();
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session?.user) syncMyAvatar();
     });
 
     return () => subscription.unsubscribe();

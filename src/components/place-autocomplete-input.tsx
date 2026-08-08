@@ -25,6 +25,7 @@ export function PlaceAutocompleteInput({
   label,
   value,
   onChangeText,
+  onSelectPlace,
   placeholder,
   hint,
   kind,
@@ -32,6 +33,13 @@ export function PlaceAutocompleteInput({
   label: string;
   value: string;
   onChangeText: (next: string) => void;
+  /**
+   * Fires only when a suggestion is picked, carrying Google's own split of the
+   * place into a name and an address. Callers that want to keep the address
+   * separately — a match's venue — use this; callers happy with one line can
+   * ignore it and read `value`.
+   */
+  onSelectPlace?: (suggestion: PlaceSuggestion) => void;
   placeholder?: string;
   hint?: string;
   kind: PlaceKind;
@@ -44,14 +52,22 @@ export function PlaceAutocompleteInput({
 
   /** Drops responses that a later keystroke has already superseded. */
   const requestRef = useRef(0);
-  /** What was last accepted from the list, so picking it does not re-query it. */
-  const pickedRef = useRef<string | null>(null);
+  /**
+   * What was last accepted from the list, so picking it does not immediately
+   * re-query it. Held as the whole suggestion because the caller decides what
+   * lands in the field — the full string, or just the name with the address
+   * stored elsewhere — and either counts as unchanged.
+   */
+  const pickedRef = useRef<PlaceSuggestion | null>(null);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const trimmed = value.trim();
+    const picked = pickedRef.current;
+    const isUnchangedPick =
+      picked !== null && (trimmed === picked.text || trimmed === picked.mainText);
 
-    if (!isEditing || trimmed.length < MinPlaceQuery || trimmed === pickedRef.current) {
+    if (!isEditing || trimmed.length < MinPlaceQuery || isUnchangedPick) {
       setSuggestions([]);
       return;
     }
@@ -82,9 +98,18 @@ export function PlaceAutocompleteInput({
   }, []);
 
   const pick = (suggestion: PlaceSuggestion) => {
-    pickedRef.current = suggestion.text;
-    onChangeText(suggestion.text);
+    pickedRef.current = suggestion;
     setSuggestions([]);
+
+    // A caller that wants the two parts separately takes over entirely, because
+    // only it knows which part belongs in this field. Everyone else gets the
+    // joined string, which is what a single text field wants.
+    if (onSelectPlace) {
+      onSelectPlace(suggestion);
+      return;
+    }
+
+    onChangeText(suggestion.text);
   };
 
   return (
@@ -107,7 +132,10 @@ export function PlaceAutocompleteInput({
           onBlur={() => {
             blurTimerRef.current = setTimeout(() => setIsEditing(false), BlurCloseMs);
           }}
-          style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+          style={[
+            styles.input,
+            { color: theme.text, backgroundColor: theme.background, borderColor: theme.rule },
+          ]}
         />
         {isSearching ? (
           <ActivityIndicator style={styles.spinner} size="small" color={theme.textSecondary} />
@@ -121,7 +149,7 @@ export function PlaceAutocompleteInput({
         <View
           style={[
             styles.suggestions,
-            { backgroundColor: theme.backgroundElement, borderColor: theme.rule },
+            { backgroundColor: theme.background, borderColor: theme.rule },
           ]}>
           {suggestions.map((suggestion, index) => (
             <Pressable
@@ -178,6 +206,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.two,
+    // Bordered rather than relying on a fill, so the same field reads as a field
+    // on a white sheet and on the tinted page behind the screens.
+    borderWidth: StyleSheet.hairlineWidth,
     fontSize: 16,
   },
   spinner: {

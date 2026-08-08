@@ -3,14 +3,14 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ProposeMatchSheet } from '@/components/propose-match-sheet';
+import { MatchCard } from '@/components/match-card';
+import { MatchSheet } from '@/components/match-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   fetchUpcomingMatches,
-  formatWhen,
   isSeated,
   joinMatch,
   leaveMatch,
@@ -54,7 +54,7 @@ function FilterBar({ value, onChange }: { value: FilterKey; onChange: (next: Fil
             onPress={() => onChange(filter.key)}
             style={({ pressed }) => [pressed && styles.pressed]}>
             <ThemedView
-              type={selected ? 'backgroundSelected' : 'backgroundElement'}
+              type={selected ? 'backgroundSelected' : 'background'}
               style={styles.filterChip}>
               <ThemedText
                 type="label"
@@ -70,6 +70,11 @@ function FilterBar({ value, onChange }: { value: FilterKey; onChange: (next: Fil
   );
 }
 
+/**
+ * Only genuinely actionable states get a control. "Hosting" and "Full" used to
+ * sit here styled like buttons while doing nothing; the card's edge bar and
+ * standing label carry that now.
+ */
 function SeatButton({
   match,
   userId,
@@ -84,27 +89,17 @@ function SeatButton({
   onLeave: () => void;
 }) {
   const theme = useTheme();
-  const seated = isSeated(match, userId);
-  const isHost = match.host_id === userId;
-  const full = match.players.length >= SEATS_PER_MATCH;
 
   // The host holds a seat for the life of the match; leaving would orphan it.
-  // Cancelling a match is a separate action, not yet built.
-  if (isHost) {
-    return (
-      <ThemedText type="smallBold" style={{ color: theme.accentGold }}>
-        Hosting
-      </ThemedText>
-    );
-  }
-
+  // Calling a match off is an edit, and lives on My Matches.
+  if (match.host_id === userId) return null;
   if (busy) return <ActivityIndicator />;
 
-  if (seated) {
+  if (isSeated(match, userId)) {
     return (
       <Pressable onPress={onLeave} style={({ pressed }) => pressed && styles.pressed}>
         <ThemedView type="backgroundSelected" style={styles.seatButton}>
-          <ThemedText type="smallBold" themeColor="textSecondary">
+          <ThemedText type="label" themeColor="textSecondary">
             Leave
           </ThemedText>
         </ThemedView>
@@ -112,87 +107,16 @@ function SeatButton({
     );
   }
 
-  if (full) {
-    return (
-      <ThemedText type="smallBold" themeColor="textSecondary">
-        Full
-      </ThemedText>
-    );
-  }
+  if (match.players.length >= SEATS_PER_MATCH) return null;
 
   return (
     <Pressable onPress={onJoin} style={({ pressed }) => pressed && styles.pressed}>
       <View style={[styles.seatButton, { backgroundColor: theme.accent }]}>
-        <ThemedText type="smallBold" style={styles.joinLabel}>
+        <ThemedText type="label" style={styles.joinLabel}>
           Join
         </ThemedText>
       </View>
     </Pressable>
-  );
-}
-
-function MatchCard({
-  match,
-  userId,
-  busy,
-  onJoin,
-  onLeave,
-}: {
-  match: Match;
-  userId: string;
-  busy: boolean;
-  onJoin: () => void;
-  onLeave: () => void;
-}) {
-  const theme = useTheme();
-  const names = match.players
-    .map((player) => player.profile?.name)
-    .filter((name): name is string => Boolean(name));
-
-  return (
-    <ThemedView type="backgroundElement" style={[styles.card, { borderColor: theme.rule }]}>
-      <View style={styles.cardHeader}>
-        <ThemedText type="label" themeColor="accent">
-          {match.is_league ? 'League' : 'Scramble'}
-        </ThemedText>
-        <ThemedText type="figureSmall" themeColor="textSecondary">
-          {match.players.length}/{SEATS_PER_MATCH}
-        </ThemedText>
-      </View>
-
-      <ThemedText type="subtitle">{match.location}</ThemedText>
-
-      <ThemedText type="defaultSemiBold" themeColor="textSecondary">
-        {formatWhen(match.date_time)}
-      </ThemedText>
-
-      <View style={[styles.divider, { borderColor: theme.rule }]} />
-
-      <ThemedText type="small" themeColor="textSecondary">
-        Hosted by {match.host?.name ?? 'a member'}
-        {match.supplies_provided ? ' · supplies provided' : ''}
-      </ThemedText>
-
-      <ThemedText type="small" themeColor="textSecondary">
-        {names.length ? names.join(', ') : 'No one seated yet'}
-      </ThemedText>
-
-      {match.notes ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          {match.notes}
-        </ThemedText>
-      ) : null}
-
-      <View style={styles.cardFooter}>
-        <SeatButton
-          match={match}
-          userId={userId}
-          busy={busy}
-          onJoin={onJoin}
-          onLeave={onLeave}
-        />
-      </View>
-    </ThemedView>
   );
 }
 
@@ -270,7 +194,7 @@ export default function BrowseMatchesScreen() {
   const openCount = matches.filter((match) => match.status === 'open').length;
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView type="backgroundElement" style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <View style={styles.headerRow}>
@@ -317,9 +241,15 @@ export default function BrowseMatchesScreen() {
               <MatchCard
                 match={item}
                 userId={userId ?? ''}
-                busy={busyMatchId === item.id}
-                onJoin={() => changeSeat(item.id, joinMatch)}
-                onLeave={() => changeSeat(item.id, leaveMatch)}
+                action={
+                  <SeatButton
+                    match={item}
+                    userId={userId ?? ''}
+                    busy={busyMatchId === item.id}
+                    onJoin={() => changeSeat(item.id, joinMatch)}
+                    onLeave={() => changeSeat(item.id, leaveMatch)}
+                  />
+                }
               />
             )}
             contentContainerStyle={styles.listContent}
@@ -334,11 +264,15 @@ export default function BrowseMatchesScreen() {
           />
         )}
 
-        <ProposeMatchSheet
+        {/* Keyed on open so each visit starts from a blank form: the sheet reads
+            its initial state once, when it mounts. */}
+        <MatchSheet
+          key={isProposing ? 'proposing' : 'closed'}
           hostId={userId}
+          match={null}
           visible={isProposing}
           onClose={() => setIsProposing(false)}
-          onCreated={async () => {
+          onSaved={async () => {
             setIsProposing(false);
             await load();
           }}
@@ -383,10 +317,6 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 2,
   },
-  divider: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginVertical: Spacing.one,
-  },
   filterBar: {
     flexDirection: 'row',
     gap: Spacing.two,
@@ -410,31 +340,15 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset + Spacing.four,
     gap: Spacing.three,
   },
-  card: {
-    padding: Spacing.four,
-    borderRadius: Spacing.two,
-    borderWidth: StyleSheet.hairlineWidth,
-    gap: Spacing.one,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.one,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    minHeight: 32,
-    marginTop: Spacing.one,
-  },
+  /** Same scale as the host controls on My Matches, so cards read consistently. */
   seatButton: {
-    paddingVertical: Spacing.two,
-    minHeight: 40,
+    paddingVertical: Spacing.one,
+    minHeight: 32,
+    minWidth: 104,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
   },
   joinLabel: {
     color: '#ffffff',

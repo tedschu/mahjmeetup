@@ -58,7 +58,10 @@ function Field({
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
         keyboardType={keyboardType ?? 'default'}
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+        style={[
+          styles.input,
+          { color: theme.text, backgroundColor: theme.background, borderColor: theme.rule },
+        ]}
       />
       {hint ? (
         <ThemedText type="small" themeColor="textSecondary">
@@ -138,7 +141,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView type="backgroundElement" style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         {isLoading ? (
           <ActivityIndicator style={styles.centered} />
@@ -192,7 +195,7 @@ export default function ProfileScreen() {
                       onPress={() => set('experience_level')(selected ? '' : level)}
                       style={({ pressed }) => pressed && styles.pressed}>
                       <ThemedView
-                        type={selected ? 'backgroundSelected' : 'backgroundElement'}
+                        type={selected ? 'backgroundSelected' : 'background'}
                         style={[styles.chip, { borderColor: theme.rule }]}>
                         <ThemedText
                           type="label"
@@ -234,7 +237,7 @@ export default function ProfileScreen() {
             </Pressable>
 
             <Pressable onPress={signOut} style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.secondaryButton}>
+              <ThemedView type="background" style={[styles.secondaryButton, { borderColor: theme.rule }]}>
                 <ThemedText type="smallBold" themeColor="textSecondary">
                   Sign out
                 </ThemedText>
@@ -276,6 +279,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
     fontSize: 16,
   },
   chips: {
@@ -304,6 +308,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     paddingVertical: Spacing.three,
     borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },
   disabled: {

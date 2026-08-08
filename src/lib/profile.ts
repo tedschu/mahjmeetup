@@ -9,6 +9,7 @@ export type Profile = {
   name: string | null;
   phone: string | null;
   town: string | null;
+  avatar_url: string | null;
   experience_level: string | null;
 };
 
@@ -22,7 +23,7 @@ export async function fetchMyProfile(): Promise<{ profile: Profile; email: strin
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, phone, town, experience_level')
+    .select('id, name, phone, town, experience_level, avatar_url')
     .eq('id', user.id)
     .single();
 
@@ -42,4 +43,40 @@ export async function updateMyProfile(
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+}
+
+/**
+ * Copies the signed-in member's Google photo onto their profiles row.
+ *
+ * Needed because auth metadata is readable only by its owner: without this, a
+ * member's photo would be visible to nobody but themselves. The signup trigger
+ * captures it for new accounts, so this exists for accounts that predate the
+ * column and for when Google changes the URL.
+ *
+ * Fails quietly. A missing photo falls back to initials, which is not worth
+ * interrupting a sign-in over.
+ */
+export async function syncMyAvatar() {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const metadata = user.user_metadata ?? {};
+    const picture = (metadata.avatar_url ?? metadata.picture) as string | undefined;
+    if (!picture) return;
+
+    const { data: current } = await supabase
+      .from('profiles')
+      .select('avatar_url')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (current?.avatar_url === picture) return;
+
+    await supabase.from('profiles').update({ avatar_url: picture }).eq('id', user.id);
+  } catch {
+    // Deliberately ignored; see above.
+  }
 }

@@ -1,6 +1,13 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Platform,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -49,8 +56,8 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
 
   return (
     <ThemedView
-      type={isCurrentUser ? 'backgroundSelected' : 'backgroundElement'}
-      style={[styles.row, { borderColor: theme.rule }]}>
+      type={isCurrentUser ? 'backgroundSelected' : 'background'}
+      style={[styles.row, styles.raised, { borderColor: theme.rule, shadowColor: theme.text }]}>
       <ThemedText
         type="figureSmall"
         style={styles.rank}
@@ -131,7 +138,7 @@ export default function LeaderboardScreen() {
   const playedCount = rows.filter((row) => row.games_played > 0).length;
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView type="backgroundElement" style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <ThemedText type="label" themeColor="accent">
@@ -218,6 +225,15 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     gap: Spacing.three,
   },
+  /** Same faint lift as the match cards, so both read as the same material. */
+  raised: Platform.select({
+    android: { elevation: 2 },
+    default: {
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06,
+      shadowRadius: 6,
+    },
+  }),
   rank: {
     minWidth: 20,
     textAlign: 'right',

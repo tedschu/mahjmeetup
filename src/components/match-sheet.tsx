@@ -17,13 +17,23 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { createMatch } from '@/lib/matches';
+import {
+  cancelMatch,
+  createMatch,
+  deleteMatch,
+  formatTimeOfDay,
+  parseTimeOfDay,
+  SEATS_PER_MATCH,
+  updateMatch,
+  type Match,
+} from '@/lib/matches';
+
+const DefaultTime = '7:00 pm';
 
 /** Local wall-clock date, so the default is today where the member is, not UTC. */
-function todayISO() {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+function localDateISO(date: Date) {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
 /**
@@ -33,77 +43,106 @@ function todayISO() {
  */
 function toTimestamp(date: string, time: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) return null;
-  if (!/^\d{1,2}:\d{2}$/.test(time.trim())) return null;
+
+  const clock = parseTimeOfDay(time);
+  if (!clock) return null;
 
   const [year, month, day] = date.trim().split('-').map(Number);
-  const [hour, minute] = time.trim().split(':').map(Number);
 
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  if (hour > 23 || minute > 59) return null;
 
-  const at = new Date(year, month - 1, day, hour, minute);
+  const at = new Date(year, month - 1, day, clock.hour, clock.minute);
   if (at.getMonth() !== month - 1 || at.getDate() !== day) return null;
 
   return at.toISOString();
 }
 
-export function ProposeMatchSheet({
+/**
+ * Posts a new match, or edits one the signed-in member hosts. The same fields
+ * apply either way, so this is one sheet rather than two that drift apart.
+ */
+export function MatchSheet({
   hostId,
+  match,
   visible,
   onClose,
-  onCreated,
+  onSaved,
 }: {
   hostId: string | null;
+  /** null when proposing; the match being edited otherwise. */
+  match: Match | null;
   visible: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 }) {
   const theme = useTheme();
-  const [date, setDate] = useState(todayISO());
-  const [time, setTime] = useState('19:00');
-  const [location, setLocation] = useState('');
-  const [notes, setNotes] = useState('');
-  const [supplies, setSupplies] = useState(false);
-  const [isLeague, setIsLeague] = useState(false);
+  const isEditing = match !== null;
+  const startedAt = match ? new Date(match.date_time) : null;
+
+  const [date, setDate] = useState(localDateISO(startedAt ?? new Date()));
+  const [time, setTime] = useState(startedAt ? formatTimeOfDay(startedAt) : DefaultTime);
+  const [location, setLocation] = useState(match?.location ?? '');
+  const [locationDetail, setLocationDetail] = useState(match?.location_detail ?? null);
+  const [notes, setNotes] = useState(match?.notes ?? '');
+  const [supplies, setSupplies] = useState(match?.supplies_provided ?? false);
+  const [isLeague, setIsLeague] = useState(match?.is_league ?? false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isConfirmingRemoval, setIsConfirmingRemoval] = useState(false);
 
   const at = toTimestamp(date, time);
-  const canPost = at !== null && location.trim().length > 0 && !isSaving;
+  const canSave = at !== null && location.trim().length > 0 && !isSaving;
 
-  const reset = () => {
-    setDate(todayISO());
-    setTime('19:00');
-    setLocation('');
-    setNotes('');
-    setSupplies(false);
-    setIsLeague(false);
-    setError(null);
-  };
+  // Erasing a match other people joined would take it off their lists with no
+  // explanation, so past the host's own seat the honest action is to cancel.
+  const isAlone = (match?.players.length ?? 0) <= 1;
+  const removalLabel = isAlone ? 'Delete match' : 'Cancel match';
 
   const close = () => {
-    reset();
+    setError(null);
+    setIsConfirmingRemoval(false);
     onClose();
   };
 
-  const post = async () => {
+  const save = async () => {
     if (!hostId || !at) return;
+
+    const fields = {
+      date_time: at,
+      location: location.trim(),
+      location_detail: locationDetail?.trim() || null,
+      notes: notes.trim() || null,
+      supplies_provided: supplies,
+      is_league: isLeague,
+    };
 
     setIsSaving(true);
     try {
-      await createMatch(hostId, {
-        date_time: at,
-        location: location.trim(),
-        notes: notes.trim() || null,
-        supplies_provided: supplies,
-        is_league: isLeague,
-      });
-      reset();
-      onCreated();
+      if (match) {
+        await updateMatch(match.id, fields);
+      } else {
+        await createMatch(hostId, fields);
+      }
+      onSaved();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not post the match.');
+      setError(cause instanceof Error ? cause.message : 'Could not save the match.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!match) return;
+
+    setIsSaving(true);
+    try {
+      await (isAlone ? deleteMatch(match.id) : cancelMatch(match.id));
+      onSaved();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : `Could not ${removalLabel.toLowerCase()}.`);
+    } finally {
+      setIsSaving(false);
+      setIsConfirmingRemoval(false);
     }
   };
 
@@ -118,9 +157,11 @@ export function ProposeMatchSheet({
           <ScrollView
             contentContainerStyle={styles.sheetContent}
             keyboardShouldPersistTaps="handled">
-            <ThemedText type="subtitle">Propose a match</ThemedText>
+            <ThemedText type="subtitle">{isEditing ? 'Edit match' : 'Propose a match'}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              You take the first seat. Three others can join.
+              {isEditing
+                ? `${match.players.length} of ${SEATS_PER_MATCH} seats taken.`
+                : 'You take the first seat. Three others can join.'}
             </ThemedText>
 
             <View style={styles.pair}>
@@ -142,8 +183,9 @@ export function ProposeMatchSheet({
                 <TextInput
                   value={time}
                   onChangeText={setTime}
-                  placeholder="19:00"
+                  placeholder={DefaultTime}
                   placeholderTextColor={theme.textSecondary}
+                  autoCapitalize="none"
                   style={[
                     styles.input,
                     { color: theme.text, backgroundColor: theme.backgroundElement },
@@ -154,18 +196,33 @@ export function ProposeMatchSheet({
 
             {date.length > 0 && time.length > 0 && at === null ? (
               <ThemedText type="small" style={styles.error}>
-                Use YYYY-MM-DD and a 24-hour time, like 2026-08-15 and 19:00.
+                Use YYYY-MM-DD and a time like 6:30 pm.
               </ThemedText>
             ) : null}
 
             <PlaceAutocompleteInput
               label="Venue"
               value={location}
-              onChangeText={setLocation}
+              onChangeText={(next) => {
+                setLocation(next);
+                // Typing over a picked venue makes its address stale, and a wrong
+                // address is worse than none.
+                setLocationDetail(null);
+              }}
+              onSelectPlace={(suggestion) => {
+                setLocation(suggestion.mainText);
+                setLocationDetail(suggestion.secondaryText);
+              }}
               placeholder="Where you are playing"
               hint="Pick a suggestion, or type anything — a living room is a venue too."
               kind="venue"
             />
+
+            {locationDetail ? (
+              <ThemedText type="small" themeColor="textSecondary" style={styles.detail}>
+                {locationDetail}
+              </ThemedText>
+            ) : null}
 
             <View style={styles.field}>
               <ThemedText type="label" themeColor="textSecondary">Notes</ThemedText>
@@ -209,25 +266,69 @@ export function ProposeMatchSheet({
               </Pressable>
 
               <Pressable
-                onPress={post}
-                disabled={!canPost}
+                onPress={save}
+                disabled={!canSave}
                 style={({ pressed }) => pressed && styles.pressed}>
                 <View
                   style={[
                     styles.button,
                     { backgroundColor: theme.accent },
-                    !canPost && styles.disabled,
+                    !canSave && styles.disabled,
                   ]}>
                   {isSaving ? (
                     <ActivityIndicator color="#ffffff" />
                   ) : (
                     <ThemedText type="smallBold" style={styles.postLabel}>
-                      Post match
+                      {isEditing ? 'Save changes' : 'Post match'}
                     </ThemedText>
                   )}
                 </View>
               </Pressable>
             </View>
+
+            {/* Two-step rather than a system confirm dialog: a native alert blocks
+                the whole page, and an inline step can say what will actually
+                happen to the other players. */}
+            {isEditing ? (
+              <View style={[styles.removal, { borderColor: theme.rule }]}>
+                {isConfirmingRemoval ? (
+                  <>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {isAlone
+                        ? 'This removes the match completely. Nobody else has joined, so nobody is affected.'
+                        : `${match.players.length - 1} other ${
+                            match.players.length - 1 === 1 ? 'player has' : 'players have'
+                          } joined. They keep their seat and see the match marked canceled.`}
+                    </ThemedText>
+                    <View style={styles.removalActions}>
+                      <Pressable
+                        onPress={() => setIsConfirmingRemoval(false)}
+                        style={({ pressed }) => pressed && styles.pressed}>
+                        <ThemedText type="smallBold" themeColor="textSecondary">
+                          Keep it
+                        </ThemedText>
+                      </Pressable>
+                      <Pressable
+                        onPress={remove}
+                        disabled={isSaving}
+                        style={({ pressed }) => pressed && styles.pressed}>
+                        <ThemedText type="smallBold" style={styles.destructive}>
+                          Yes, {removalLabel.toLowerCase()}
+                        </ThemedText>
+                      </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <Pressable
+                    onPress={() => setIsConfirmingRemoval(true)}
+                    style={({ pressed }) => pressed && styles.pressed}>
+                    <ThemedText type="smallBold" style={styles.destructive}>
+                      {removalLabel}
+                    </ThemedText>
+                  </Pressable>
+                )}
+              </View>
+            ) : null}
           </ScrollView>
         </ThemedView>
       </KeyboardAvoidingView>
@@ -274,6 +375,9 @@ const styles = StyleSheet.create({
     minHeight: 72,
     textAlignVertical: 'top',
   },
+  detail: {
+    marginTop: -Spacing.two,
+  },
   toggle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -284,6 +388,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   error: {
+    color: '#c0392b',
+  },
+  destructive: {
     color: '#c0392b',
   },
   actions: {
@@ -299,6 +406,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 110,
+    minHeight: 44,
+  },
+  removal: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+    gap: Spacing.two,
+  },
+  removalActions: {
+    flexDirection: 'row',
+    gap: Spacing.four,
+    alignItems: 'center',
+    minHeight: 44,
   },
   disabled: {
     opacity: 0.5,

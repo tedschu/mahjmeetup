@@ -10,89 +10,117 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Icon, type IconName } from '@/components/icon';
+import { MatchCard } from '@/components/match-card';
+import { MatchSheet } from '@/components/match-sheet';
 import { ScoreEntrySheet } from '@/components/score-entry-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchMyMatches, formatWhen, SEATS_PER_MATCH, type Match } from '@/lib/matches';
+import {
+  addMatchToCalendar,
+  loadCalendarSent,
+  recordCalendarSent,
+} from '@/lib/calendar';
+import { fetchMyMatches, type Match } from '@/lib/matches';
 import { supabase } from '@/lib/supabase';
 
-function MatchCard({
+/**
+ * What a member can do with a match they are part of. Calling a match off lives
+ * inside the edit sheet rather than here, where there is room to say what
+ * happens to everyone else who joined.
+ */
+function MatchActions({
   match,
   userId,
+  sentToCalendar,
+  onAddToCalendar,
+  onEdit,
   onEnterScores,
 }: {
   match: Match;
   userId: string;
+  sentToCalendar: boolean;
+  onAddToCalendar: () => void;
+  onEdit: () => void;
   onEnterScores: () => void;
 }) {
   const theme = useTheme();
-  const isHosting = match.host_id === userId;
-  const names = match.players
-    .map((player) => player.profile?.name)
-    .filter((name): name is string => Boolean(name));
-  const scored = match.players.filter((player) => player.score !== null);
-  // Only the host records the card; a canceled match has nothing to record.
-  const canScore = isHosting && match.status !== 'canceled' && match.players.length > 0;
 
+  const isHost = match.host_id === userId;
+  const scored = match.players.some((player) => player.score !== null);
+  const isOver = match.status === 'canceled' || match.status === 'completed';
+  // Only the host records the card, and a called-off match has nothing to record.
+  const canScore = isHost && match.status !== 'canceled' && match.players.length > 0;
+
+  // Icons rather than words: three labelled buttons could not share a line with
+  // the player names at any width, and stacking them made a card action look
+  // like a form's submit. Each carries its label for screen readers instead.
   return (
-    <ThemedView type="backgroundElement" style={[styles.card, { borderColor: theme.rule }]}>
-      <View style={styles.cardHeader}>
-        <ThemedText type="label" themeColor="accent">
-          {match.is_league ? 'League' : 'Scramble'}
-        </ThemedText>
-        <ThemedText type="figureSmall" themeColor="textSecondary">
-          {match.players.length}/{SEATS_PER_MATCH}
-        </ThemedText>
-      </View>
+    <View style={styles.actions}>
+      {/* Every match on this screen is one the member is part of, so there is
+          always something worth putting in a calendar — until it is past. */}
+      {isOver ? null : (
+        <IconButton
+          name={sentToCalendar ? 'calendarCheck' : 'calendarPlus'}
+          label={sentToCalendar ? 'Already sent to calendar — send again' : 'Add to calendar'}
+          onPress={onAddToCalendar}
+        />
+      )}
 
-      <ThemedText type="subtitle">{match.location}</ThemedText>
-
-      <ThemedText type="defaultSemiBold" themeColor="textSecondary">
-        {formatWhen(match.date_time)}
-      </ThemedText>
-
-      <View style={[styles.divider, { borderColor: theme.rule }]} />
-
-      <ThemedText type="small" themeColor="textSecondary">
-        {names.length ? names.join(', ') : 'No one seated yet'}
-      </ThemedText>
-
-      {match.notes ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          {match.notes}
-        </ThemedText>
+      {isHost && !isOver ? (
+        <IconButton name="pencil" label="Edit match" onPress={onEdit} />
       ) : null}
 
-      <View style={styles.cardFooter}>
-        <ThemedText type="label" themeColor="textSecondary">
-          {match.status ?? 'open'}
-        </ThemedText>
-        {isHosting ? (
-          <ThemedText type="label" style={{ color: theme.accentGold }}>
-            Hosting
-          </ThemedText>
-        ) : null}
-        {scored.length ? (
-          <ThemedText type="label" themeColor="textSecondary">
-            Scored
-          </ThemedText>
-        ) : null}
+      {canScore ? (
+        <IconButton
+          name="scorecard"
+          label={scored ? 'Edit scores' : 'Enter scores'}
+          onPress={onEnterScores}
+          tone={theme.accent}
+        />
+      ) : null}
+    </View>
+  );
+}
 
-        {canScore ? (
-          <Pressable
-            onPress={onEnterScores}
-            style={({ pressed }) => [styles.scoreAction, pressed && styles.pressed]}>
-            <View style={[styles.scoreButton, { backgroundColor: theme.accent }]}>
-              <ThemedText type="smallBold" style={styles.scoreLabel}>
-                {scored.length ? 'Edit scores' : 'Enter scores'}
-              </ThemedText>
-            </View>
-          </Pressable>
-        ) : null}
+/**
+ * A square control that says what it does only to assistive tech. `tone` fills it
+ * for the one action worth drawing the eye — recording the card — and the rest
+ * stay quiet.
+ */
+function IconButton({
+  name,
+  label,
+  onPress,
+  tone,
+}: {
+  name: IconName;
+  label: string;
+  onPress: () => void;
+  tone?: string;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => pressed && styles.pressed}>
+      <View
+        style={[
+          styles.iconButton,
+          tone
+            ? // Border matched to the fill rather than left to default to black,
+              // which was drawing a dark outline around the filled button.
+              { backgroundColor: tone, borderColor: tone }
+            : { backgroundColor: theme.backgroundSelected, borderColor: theme.rule },
+        ]}>
+        <Icon name={name} color={tone ? '#ffffff' : theme.textSecondary} size={18} />
       </View>
-    </ThemedView>
+    </Pressable>
   );
 }
 
@@ -103,6 +131,8 @@ export default function MatchesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [scoringMatchId, setScoringMatchId] = useState<string | null>(null);
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [calendarSent, setCalendarSent] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -117,6 +147,7 @@ export default function MatchesScreen() {
 
       setUserId(user.id);
       setMatches(await fetchMyMatches(user.id));
+      setCalendarSent(await loadCalendarSent(user.id));
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your matches.');
@@ -139,6 +170,15 @@ export default function MatchesScreen() {
     }, [load])
   );
 
+  const sendToCalendar = useCallback(
+    async (match: Match) => {
+      await addMatchToCalendar(match);
+      if (!userId) return;
+      setCalendarSent(await recordCalendarSent(userId, match.id, calendarSent));
+    },
+    [calendarSent, userId]
+  );
+
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await load();
@@ -156,12 +196,13 @@ export default function MatchesScreen() {
     { title: 'Past', data: past },
   ].filter((section) => section.data.length > 0);
 
-  // Read from the freshly loaded list, so the sheet shows current seats rather
+  // Read from the freshly loaded list, so the sheets show current seats rather
   // than a snapshot taken when the button was tapped.
   const scoringMatch = matches.find((match) => match.id === scoringMatchId) ?? null;
+  const editingMatch = matches.find((match) => match.id === editingMatchId) ?? null;
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView type="backgroundElement" style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <ThemedText type="label" themeColor="accent">
@@ -183,7 +224,16 @@ export default function MatchesScreen() {
               <MatchCard
                 match={item}
                 userId={userId ?? ''}
-                onEnterScores={() => setScoringMatchId(item.id)}
+                action={
+                  <MatchActions
+                    match={item}
+                    userId={userId ?? ''}
+                    sentToCalendar={calendarSent.has(item.id)}
+                    onAddToCalendar={() => sendToCalendar(item)}
+                    onEdit={() => setEditingMatchId(item.id)}
+                    onEnterScores={() => setScoringMatchId(item.id)}
+                  />
+                }
               />
             )}
             renderSectionHeader={({ section }) => (
@@ -209,6 +259,20 @@ export default function MatchesScreen() {
           onClose={() => setScoringMatchId(null)}
           onSaved={async () => {
             setScoringMatchId(null);
+            await load();
+          }}
+        />
+
+        {/* Keyed on the match so the form is rebuilt from that match's details
+            rather than keeping whatever the last one was edited to. */}
+        <MatchSheet
+          key={`edit-${editingMatch?.id ?? 'none'}`}
+          hostId={userId}
+          match={editingMatch}
+          visible={editingMatch !== null}
+          onClose={() => setEditingMatchId(null)}
+          onSaved={async () => {
+            setEditingMatchId(null);
             await load();
           }}
         />
@@ -247,36 +311,23 @@ const styles = StyleSheet.create({
   sectionHeader: {
     marginTop: Spacing.two,
   },
-  card: {
-    padding: Spacing.four,
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  /**
+   * Square and 34px: small enough that three of them sit in a card's bottom row
+   * at phone width, large enough to hit. Below the 44px ideal, which is the
+   * trade for keeping the card short.
+   */
+  iconButton: {
+    width: 34,
+    height: 34,
     borderRadius: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    gap: Spacing.one,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.one,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    marginTop: Spacing.one,
-  },
-  scoreAction: {
-    marginLeft: 'auto',
-  },
-  scoreButton: {
-    paddingVertical: Spacing.two,
-    minHeight: 40,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
-  },
-  scoreLabel: {
-    color: '#ffffff',
   },
   pressed: {
     opacity: 0.7,

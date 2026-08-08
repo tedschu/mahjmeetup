@@ -4,15 +4,18 @@ import { supabase } from './supabase';
 export const SEATS_PER_MATCH = 4;
 
 const MATCH_SELECT = `
-  id, date_time, location, notes, supplies_provided, is_league, status, host_id,
+  id, date_time, location, location_detail, notes, supplies_provided, is_league, status, host_id,
   host:profiles!matches_host_id_fkey (id, name),
-  players:match_players (player_id, score, profile:profiles (id, name))
+  players:match_players (player_id, score, profile:profiles (id, name, avatar_url))
 `;
 
 export type Match = {
   id: string;
   date_time: string;
+  /** The venue's name, and the only part a card leads with. */
   location: string;
+  /** Street address, when the venue came from the place lookup. */
+  location_detail: string | null;
   notes: string | null;
   supplies_provided: boolean | null;
   is_league: boolean | null;
@@ -22,7 +25,7 @@ export type Match = {
   players: {
     player_id: string;
     score: number | null;
-    profile: { id: string; name: string | null } | null;
+    profile: { id: string; name: string | null; avatar_url: string | null } | null;
   }[];
 };
 
@@ -30,15 +33,81 @@ export function isSeated(match: Match, userId: string) {
   return match.players.some((player) => player.player_id === userId);
 }
 
+/**
+ * "Sat, Aug 8 · 6:30 pm CDT".
+ *
+ * The zone label comes from the viewer's own clock rather than a fixed string,
+ * so it reads CDT through the summer and CST after the change, and stays true
+ * for someone reading it from another timezone.
+ */
 export function formatWhen(dateTime: string) {
   const date = new Date(dateTime);
+
   const day = date.toLocaleDateString(undefined, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
   });
-  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  return `${day} @ ${time}`;
+
+  return `${day} · ${formatTimeWithZone(date)}`;
+}
+
+/**
+ * `hour12` is forced rather than left to the locale: a 24-hour clock is what we
+ * are deliberately moving away from, and an en-GB browser would otherwise put it
+ * straight back.
+ *
+ * formatToParts rather than a string replace, because it is specifically the
+ * meridiem that wants lowercasing — locales without one simply have no such part.
+ */
+function formatTimeWithZone(date: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  })
+    .formatToParts(date)
+    .map((part) => (part.type === 'dayPeriod' ? part.value.toLowerCase() : part.value))
+    .join('');
+}
+
+/** "6:30 pm", for prefilling the time field when editing a match. */
+export function formatTimeOfDay(date: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+    .formatToParts(date)
+    .map((part) => (part.type === 'dayPeriod' ? part.value.toLowerCase() : part.value))
+    .join('');
+}
+
+/**
+ * Accepts "6:30 pm", "6:30pm", "6 pm", and a bare "18:30" for anyone who still
+ * types it that way, so nobody has to learn a format. Returns hour and minute on
+ * a 24-hour clock, or null when it cannot be read.
+ */
+export function parseTimeOfDay(input: string): { hour: number; minute: number } | null {
+  const match = input.trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const minute = match[2] ? Number(match[2]) : 0;
+  const meridiem = match[3];
+
+  if (minute > 59) return null;
+
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    if (meridiem === 'pm' && hour !== 12) hour += 12;
+    if (meridiem === 'am' && hour === 12) hour = 0;
+  } else if (hour > 23) {
+    return null;
+  }
+
+  return { hour, minute };
 }
 
 /** Matches the signed-in member is seated at, plus any they host but have not taken a seat in. */
@@ -65,6 +134,7 @@ export async function fetchMyMatches(userId: string): Promise<Match[]> {
 export type NewMatch = {
   date_time: string;
   location: string;
+  location_detail: string | null;
   notes: string | null;
   supplies_provided: boolean;
   is_league: boolean;
@@ -126,6 +196,38 @@ export async function enterMatchScores(
     p_scores: scores,
   });
 
+  if (error) throw error;
+}
+
+/**
+ * Change the details of a match. `status` is deliberately not touched, so
+ * editing a full match does not reopen it. RLS restricts this to the host.
+ */
+export async function updateMatch(matchId: string, changes: NewMatch) {
+  const { error } = await supabase.from('matches').update(changes).eq('id', matchId);
+  if (error) throw error;
+}
+
+/**
+ * Call off a match without erasing it. The seats stay and the match shows as
+ * canceled, so a table does not silently disappear from three other people's
+ * lists with no explanation.
+ *
+ * The status sticks: sync_match_status only rewrites rows that are open or full,
+ * so someone leaving afterwards cannot flip this back to open.
+ */
+export async function cancelMatch(matchId: string) {
+  const { error } = await supabase.from('matches').update({ status: 'canceled' }).eq('id', matchId);
+  if (error) throw error;
+}
+
+/**
+ * Erase a match outright. Seats go with it via ON DELETE CASCADE. Only offered
+ * while the host is the only player, because past that point cancelling is the
+ * honest action — see cancelMatch.
+ */
+export async function deleteMatch(matchId: string) {
+  const { error } = await supabase.from('matches').delete().eq('id', matchId);
   if (error) throw error;
 }
 

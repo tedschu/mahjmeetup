@@ -1,0 +1,65 @@
+import { Image } from 'expo-image';
+
+/**
+ * A small stroke-drawn icon set, kept in one place so the navigation and the card
+ * controls stay visually consistent.
+ *
+ * The colour is substituted into the SVG source rather than applied with
+ * `tintColor`. Tinting relies on the renderer supporting a mask over a vector,
+ * which varies by platform; baking the stroke colour in cannot fail anywhere
+ * that can draw an SVG at all. It also means no bitmap variants per state.
+ *
+ * All paths are drawn on a 24×24 grid so weights match when they sit together.
+ */
+const Paths: Record<string, string> = {
+  /** Browse — looking for a table. */
+  search: '<circle cx="11" cy="11" r="7"/><path d="M16.6 16.6 21 21"/>',
+  /** My Matches — what is on the calendar. */
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>',
+  /** Leaderboard — a podium, rather than a trophy that only one person gets. */
+  standings: '<path d="M5 21v-5M12 21V6M19 21v-9"/>',
+  /** Profile. */
+  person: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.2 8-6.2s8 2.2 8 6.2"/>',
+  /** Add to calendar — the same calendar, plus something. */
+  calendarPlus:
+    '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18M12 14.5v4M10 16.5h4"/>',
+  /** Already sent to a calendar. */
+  calendarCheck:
+    '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18M9 15.5l2.2 2.2 4-4"/>',
+  /** Edit. */
+  pencil: '<path d="M4 20h4L20 8l-4-4L4 16z"/><path d="m14.5 5.5 4 4"/>',
+  /** Enter scores — a scorecard's ruled columns. */
+  scorecard: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M15 10v10"/>',
+};
+
+export type IconName = keyof typeof Paths;
+
+function source(name: IconName, color: string) {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ` +
+    `stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
+    `${Paths[name]}</svg>`;
+
+  return { uri: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}` };
+}
+
+export function Icon({
+  name,
+  color,
+  size = 20,
+}: {
+  name: IconName;
+  color: string;
+  size?: number;
+}) {
+  return (
+    <Image
+      source={source(name, color)}
+      style={{ width: size, height: size }}
+      contentFit="contain"
+      // Icons here always sit beside a label or carry one on the pressable, so
+      // announcing them again would just repeat it.
+      accessible={false}
+    />
+  );
+}

@@ -7,28 +7,19 @@ import {
   TabListProps,
 } from 'expo-router/ui';
 import { Image } from 'expo-image';
-import { Pressable, useWindowDimensions, View, StyleSheet } from 'react-native';
+import { Pressable, View, StyleSheet } from 'react-native';
 
+import { Icon, type IconName } from './icon';
 import { ThemedText } from './themed-text';
 
 import {
-  CompactBreakpoint,
   CompactTabBarHeight,
   MaxContentWidth,
   Spacing,
   WebTabBarInset,
 } from '@/constants/theme';
+import { useCompact } from '@/hooks/use-compact';
 import { useTheme } from '@/hooks/use-theme';
-
-/**
- * Four labels and a brand mark do not fit across a phone, so on narrow screens
- * the navigation moves to the bottom of the window, where the native tabs
- * already live and where a thumb can reach it.
- */
-function useCompact() {
-  const { width } = useWindowDimensions();
-  return width < CompactBreakpoint;
-}
 
 export default function AppTabs() {
   const compact = useCompact();
@@ -47,16 +38,24 @@ export default function AppTabs() {
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="index" href="/" asChild>
-            <TabButton>Browse</TabButton>
+            <TabButton icon="search" compactLabel="Browse">
+              Browse
+            </TabButton>
           </TabTrigger>
           <TabTrigger name="matches" href="/matches" asChild>
-            <TabButton>My Matches</TabButton>
+            <TabButton icon="calendar" compactLabel="Matches">
+              My Matches
+            </TabButton>
           </TabTrigger>
           <TabTrigger name="leaderboard" href="/leaderboard" asChild>
-            <TabButton>Leaderboard</TabButton>
+            <TabButton icon="standings" compactLabel="Ranking">
+              Leaderboard
+            </TabButton>
           </TabTrigger>
           <TabTrigger name="profile" href="/profile" asChild>
-            <TabButton>Profile</TabButton>
+            <TabButton icon="person" compactLabel="Profile">
+              Profile
+            </TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -64,9 +63,24 @@ export default function AppTabs() {
   );
 }
 
-export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+export function TabButton({
+  children,
+  isFocused,
+  icon,
+  compactLabel,
+  ...props
+}: TabTriggerSlotProps & {
+  icon: IconName;
+  /**
+   * "Leaderboard" cannot fit a quarter of a phone's width and was being cut off,
+   * so the bottom bar takes a shorter word under the icon. The full label stays
+   * on the wide bar, where there is room for it.
+   */
+  compactLabel: string;
+}) {
   const compact = useCompact();
   const theme = useTheme();
+  const tint = isFocused ? theme.text : theme.textSecondary;
 
   return (
     <Pressable
@@ -86,11 +100,15 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
             ? { borderTopColor: isFocused ? theme.accentGold : 'transparent' }
             : { borderBottomColor: isFocused ? theme.accentGold : 'transparent' },
         ]}>
+        {/* The icon only appears on the bottom bar. On the wide bar the labels
+            already fit, and four icons there would just be decoration. */}
+        {compact ? <Icon name={icon} color={tint} size={22} /> : null}
         <ThemedText
           type="label"
           themeColor={isFocused ? 'text' : 'textSecondary'}
-          numberOfLines={1}>
-          {children}
+          numberOfLines={1}
+          style={compact ? styles.compactLabel : undefined}>
+          {compact ? compactLabel : children}
         </ThemedText>
       </View>
     </Pressable>
@@ -193,6 +211,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     borderTopWidth: 2,
     borderTopColor: 'transparent',
+    gap: 2,
+  },
+  /** Small enough that the shortest sensible word still fits a quarter width. */
+  compactLabel: {
+    fontSize: 10,
+    letterSpacing: 0.4,
   },
   pressed: {
     opacity: 0.7,

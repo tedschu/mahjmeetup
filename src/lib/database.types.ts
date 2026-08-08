@@ -85,6 +85,7 @@ export type Database = {
           id: string
           is_league: boolean | null
           location: string
+          location_detail: string | null
           notes: string | null
           status: string | null
           supplies_provided: boolean | null
@@ -96,6 +97,7 @@ export type Database = {
           id?: string
           is_league?: boolean | null
           location: string
+          location_detail?: string | null
           notes?: string | null
           status?: string | null
           supplies_provided?: boolean | null
@@ -107,6 +109,7 @@ export type Database = {
           id?: string
           is_league?: boolean | null
           location?: string
+          location_detail?: string | null
           notes?: string | null
           status?: string | null
           supplies_provided?: boolean | null
@@ -130,6 +133,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           experience_level: string | null
           id: string
@@ -138,6 +142,7 @@ export type Database = {
           town: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           experience_level?: string | null
           id: string
@@ -146,6 +151,7 @@ export type Database = {
           town?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           experience_level?: string | null
           id?: string
