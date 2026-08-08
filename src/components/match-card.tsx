@@ -4,7 +4,7 @@ import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Avatar, EmptySeat } from '@/components/avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { CardShadow, Spacing } from '@/constants/theme';
 import { useTheme, type Theme } from '@/hooks/use-theme';
 import { formatWhen, SEATS_PER_MATCH, type Match } from '@/lib/matches';
 
@@ -169,7 +169,6 @@ export function MatchCard({
           // what made them read as flat regardless of the shadow.
           backgroundColor: theme.background,
           borderLeftColor: bar,
-          shadowColor: theme.text,
         },
         muted && styles.muted,
       ]}>
@@ -245,16 +244,14 @@ const styles = StyleSheet.create({
    * A hairline border read as flat, so the cards lift off the page instead.
    * Android needs `elevation`; the web and iOS shadow props map to a box shadow.
    */
+  /**
+   * Wide and faint: a low opacity spread over a large radius reads as a lift you
+   * notice without ever seeing an edge. See CardShadow for why this is not
+   * written with the shadow* props.
+   */
   raised: Platform.select({
     android: { elevation: 2 },
-    default: {
-      // Wide and faint rather than tight and dark: spreading a low opacity over
-      // a larger radius reads as a lift you notice without seeing an edge. At
-      // 6px it was too tight to register at all against the tinted page.
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.09,
-      shadowRadius: 12,
-    },
+    default: { boxShadow: CardShadow },
   }),
   /** Full, canceled and played matches step back rather than competing. */
   muted: {

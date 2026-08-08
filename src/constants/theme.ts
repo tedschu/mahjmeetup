@@ -80,6 +80,19 @@ export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
 
 /**
+ * The lift under cards and leaderboard rows.
+ *
+ * Declared as a `boxShadow` string rather than with `shadowOffset` /
+ * `shadowOpacity` / `shadowRadius`: react-native-web 0.21 drops those legacy
+ * props on the floor, keeping only `shadowColor`, which renders as a zero-size
+ * shadow — visually nothing. `boxShadow` is the standard style and is honoured.
+ *
+ * The colour is a fixed navy-black rather than the theme's ink, because in dark
+ * mode the ink is white and a white glow is not a shadow.
+ */
+export const CardShadow = '0px 2px 12px rgba(20, 45, 78, 0.1)';
+
+/**
  * Height of the floating web tab bar. It is positioned absolutely so it can
  * overlay scrolling content, which means page content has to be inset by this
  * much or headings slide underneath it. The height is set by the tallest thing

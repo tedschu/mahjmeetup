@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, CardShadow, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchLeaderboard, type LeaderboardRow } from '@/lib/leaderboard';
 import { supabase } from '@/lib/supabase';
@@ -57,7 +57,7 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
   return (
     <ThemedView
       type={isCurrentUser ? 'backgroundSelected' : 'background'}
-      style={[styles.row, styles.raised, { borderColor: theme.rule, shadowColor: theme.text }]}>
+      style={[styles.row, styles.raised, { borderColor: theme.rule }]}>
       <ThemedText
         type="figureSmall"
         style={styles.rank}
@@ -228,11 +228,7 @@ const styles = StyleSheet.create({
   /** Same faint lift as the match cards, so both read as the same material. */
   raised: Platform.select({
     android: { elevation: 2 },
-    default: {
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.09,
-      shadowRadius: 12,
-    },
+    default: { boxShadow: CardShadow },
   }),
   rank: {
     minWidth: 20,
