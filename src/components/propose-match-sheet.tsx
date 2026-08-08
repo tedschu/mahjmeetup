@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { PlaceAutocompleteInput } from '@/components/place-autocomplete-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -112,7 +113,11 @@ export function ProposeMatchSheet({
         style={styles.backdrop}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ThemedView style={styles.sheet}>
-          <ScrollView contentContainerStyle={styles.sheetContent}>
+          {/* `handled` so a tap on a venue suggestion is delivered to the row
+              instead of being swallowed as a dismiss-the-keyboard gesture. */}
+          <ScrollView
+            contentContainerStyle={styles.sheetContent}
+            keyboardShouldPersistTaps="handled">
             <ThemedText type="subtitle">Propose a match</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               You take the first seat. Three others can join.
@@ -153,19 +158,14 @@ export function ProposeMatchSheet({
               </ThemedText>
             ) : null}
 
-            <View style={styles.field}>
-              <ThemedText type="label" themeColor="textSecondary">Venue</ThemedText>
-              <TextInput
-                value={location}
-                onChangeText={setLocation}
-                placeholder="Where you are playing"
-                placeholderTextColor={theme.textSecondary}
-                style={[
-                  styles.input,
-                  { color: theme.text, backgroundColor: theme.backgroundElement },
-                ]}
-              />
-            </View>
+            <PlaceAutocompleteInput
+              label="Venue"
+              value={location}
+              onChangeText={setLocation}
+              placeholder="Where you are playing"
+              hint="Pick a suggestion, or type anything — a living room is a venue too."
+              kind="venue"
+            />
 
             <View style={styles.field}>
               <ThemedText type="label" themeColor="textSecondary">Notes</ThemedText>

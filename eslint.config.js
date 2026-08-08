@@ -5,6 +5,7 @@ const expoConfig = require("eslint-config-expo/flat");
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*"],
+    // Edge functions are Deno, not React Native — the Expo rules do not apply.
+    ignores: ["dist/*", "supabase/functions/*"],
   }
 ]);

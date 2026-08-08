@@ -412,3 +412,12 @@ enabled = true
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+[functions.places-autocomplete]
+enabled = true
+# The handler also requires a member JWT via `withSupabase({ auth: 'user' })`.
+# Verifying here as well means a request with no credentials is rejected by the
+# platform before it can reach Google and spend anything.
+verify_jwt = true
+import_map = "./functions/places-autocomplete/deno.json"
+entrypoint = "./functions/places-autocomplete/index.ts"

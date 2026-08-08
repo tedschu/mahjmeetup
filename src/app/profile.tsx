@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PlaceAutocompleteInput } from '@/components/place-autocomplete-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -142,7 +143,11 @@ export default function ProfileScreen() {
         {isLoading ? (
           <ActivityIndicator style={styles.centered} />
         ) : (
-          <ScrollView contentContainerStyle={styles.content}>
+          <ScrollView
+            contentContainerStyle={styles.content}
+            // `handled` so a tap on a town suggestion reaches the row instead of
+            // being swallowed as a dismiss-the-keyboard gesture.
+            keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
               <ThemedText type="title">Profile</ThemedText>
               <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
@@ -166,11 +171,12 @@ export default function ProfileScreen() {
               keyboardType="phone-pad"
             />
 
-            <Field
+            <PlaceAutocompleteInput
               label="Town"
               value={draft.town}
               onChangeText={set('town')}
               placeholder="Where you play from"
+              kind="city"
             />
 
             <View style={styles.field}>

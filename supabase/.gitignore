@@ -6,3 +6,7 @@
 .env.keys
 .env.local
 .env.*.local
+
+# Edge function secrets, loaded automatically by `supabase functions serve`.
+# Holds the Google Maps key locally; the deployed copy lives in Supabase secrets.
+functions/.env
