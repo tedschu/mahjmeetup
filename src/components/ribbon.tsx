@@ -24,129 +24,115 @@ const Curve = 'M148 18C58 66 40 128 122 168 204 208 152 274 58 322';
 const StrokeWidth = 30;
 
 /**
- * The same ribbon, continued for as many turns as it takes to run the height of a
- * screen.
+ * The ribbon's course, as points its spine passes through with the width of the band
+ * at each.
  *
- * Each half-turn is a cubic whose two control points sit directly above and below
- * its endpoints. That puts a vertical tangent at every join, so the turns meet
- * without a kink, and — because every control point shares an x with an endpoint —
- * the curve provably stays inside `swing` either side of centre.
+ * Written out rather than generated. A generated serpentine gave a wave that
+ * oscillated about a line, and a wave about a line is either a snake or a border
+ * depending on how wide you make it — neither is a ribbon someone laid across a
+ * page. This is one continuous gesture: it enters near the middle of the top, bows
+ * out to the left edge at half height, then comes back and flattens toward the
+ * horizontal as it leaves at the bottom.
  *
- * The first attempt chained `T` commands instead, letting each control point be the
- * reflection of the last. That looks like the elegant way to write a serpentine and
- * is a trap: with an asymmetric first control the reflections compound, so the
- * control x ran 315 → -155 → 595 and each turn swung wider than the one before
- * until the curve left the frame and was cut off square by the viewBox.
+ * First and last points sit outside the frame so both ends are clipped, which is
+ * what makes it read as a length of something rather than a shape with two ends.
  */
-const Wave = {
-  /** Just wider than the band needs at its widest, turns and taper included. */
-  frame: 560,
-  /**
-   * The spine's centre drifts across the frame as it descends, rather than
-   * oscillating about a fixed line.
-   *
-   * This is the difference between a ribbon and a left border. Turns around a fixed
-   * centre stay inside a vertical strip however lively they are, and a vertical strip
-   * down one edge is a border — which is exactly what it looked like. Drifting, it
-   * enters at the top corner and travels inward, finishing near the middle of the
-   * page under the content.
-   */
-  startCentre: 60,
-  endCentre: 480,
-  /**
-   * How far the control points reach along the segment, as a fraction of its height.
-   * Above 0.5 the turns round out; at 0.5 they are noticeably tighter.
-   */
-  reach: 0.6,
-  /** Height of one half-turn. */
-  segment: 175,
-  turns: 6,
-  /**
-   * How far each turn swings from centre. Varied rather than constant: a fixed swing
-   * makes a sine wave, and a sine wave in a uniform stroke is what read as a snake.
-   */
-  swings: [78, 58, 84, 62, 74, 66, 80],
-  /**
-   * The band's width at each turn. This is the taper, and it is what makes the thing
-   * a ribbon: a flat band catches the eye where it is broad and disappears where it
-   * turns edge-on, so alternating wide and narrow reads as a length of ribbon
-   * twisting as it falls.
-   */
-  widths: [104, 58, 98, 54, 92, 62, 100],
-} as const;
+const Frame = { width: 560, height: 1000 } as const;
+
+const Course: readonly { x: number; y: number; width: number }[] = [
+  // Above the top edge, near the middle, broad.
+  { x: 335, y: -60, width: 104 },
+  { x: 248, y: 200, width: 94 },
+  // The far left, at half height.
+  { x: 58, y: 505, width: 100 },
+  { x: 176, y: 762, width: 82 },
+  { x: 392, y: 936, width: 66 },
+  // Beyond the right edge and almost level, so it leaves travelling sideways rather
+  // than running out of the bottom.
+  { x: 640, y: 1010, width: 54 },
+] as const;
 
 
 /**
- * The turn points of the ribbon's spine, with the band's width at each.
+ * A Catmull-Rom spline through the course, sampled for position and direction.
  *
- * Sides alternate, so the ribbon crosses back and forth as it descends.
+ * Catmull-Rom because it passes *through* its points rather than being pulled near
+ * them, so the course above reads as the shape it describes — move a point and the
+ * ribbon goes there. The ends are duplicated, which is the usual way to give the
+ * first and last segments the neighbour they lack.
+ *
+ * Returns the width alongside, interpolated the same way, so the taper follows the
+ * course instead of being applied afterwards.
  */
-function turnPoints() {
-  const { startCentre, endCentre, segment, turns, swings, widths } = Wave;
+function sampleCourse(t: number) {
+  const last = Course.length - 1;
+  const scaled = t * last;
+  const index = Math.min(Math.floor(scaled), last - 1);
+  const s = scaled - index;
 
-  return Array.from({ length: turns + 1 }, (_, index) => {
-    const centre = startCentre + ((endCentre - startCentre) * index) / turns;
+  const p0 = Course[Math.max(index - 1, 0)];
+  const p1 = Course[index];
+  const p2 = Course[index + 1];
+  const p3 = Course[Math.min(index + 2, last)];
 
-    return {
-      // Even turns swing left, so the first one sits outside the frame and is
-      // clipped — which is what makes the ribbon enter from off the corner rather
-      // than beginning at a visible edge.
-      x: centre + (index % 2 === 0 ? -swings[index] : swings[index]),
-      y: segment * index,
-      half: widths[index] / 2,
-    };
-  });
+  const at = (a: number, b: number, c: number, d: number) =>
+    0.5 *
+    (2 * b + (-a + c) * s + (2 * a - 5 * b + 4 * c - d) * s * s + (-a + 3 * b - 3 * c + d) * s ** 3);
+
+  // The derivative, for the tangent. Needed rather than a difference of two samples
+  // because the band's width is offset along the normal, and a normal from a coarse
+  // difference wobbles visibly where the curve turns hardest.
+  const slope = (a: number, b: number, c: number, d: number) =>
+    0.5 * (-a + c + 2 * (2 * a - 5 * b + 4 * c - d) * s + 3 * (-a + 3 * b - 3 * c + d) * s * s);
+
+  const x = at(p0.x, p1.x, p2.x, p3.x);
+  const y = at(p0.y, p1.y, p2.y, p3.y);
+  const dx = slope(p0.x, p1.x, p2.x, p3.x);
+  const dy = slope(p0.y, p1.y, p2.y, p3.y);
+  const length = Math.hypot(dx, dy) || 1;
+
+  return {
+    x,
+    y,
+    // Unit normal: the tangent turned a quarter turn. Offsetting along this rather
+    // than horizontally is what lets the ribbon keep its width where it runs level —
+    // a horizontal offset would collapse the band to nothing at the bottom, where
+    // the course deliberately flattens out.
+    nx: -dy / length,
+    ny: dx / length,
+    half: at(p0.width, p1.width, p2.width, p3.width) / 2,
+  };
 }
+
+/** How finely the outline is sampled. At this count the facets are sub-pixel. */
+const Samples = 160;
 
 /**
  * The ribbon, as a closed outline rather than a stroked line.
  *
- * A stroke cannot taper — it is one width for its whole length — and that is exactly
- * what made the first version look like a snake: a constant-thickness tube winding
- * down the page. So the two edges of the band are drawn as separate curves with the
- * gap between them varying, and the shape is filled.
- *
- * Both edges use control points sitting directly above and below their endpoints,
- * which puts a vertical tangent at every turn. That keeps the turns smooth, keeps
- * the outline provably inside the frame, and means the horizontal offset used for
- * the band's width is exactly perpendicular to the spine at the turns — where the
- * width is most visible.
+ * A stroke cannot taper — it is one width for its whole length — and that is what
+ * made the first attempt look like a snake: a constant-thickness tube winding down
+ * the page. Here the two edges are traced separately, offset along the spine's normal
+ * by a width that varies, and the shape between them is filled. A flat band catches
+ * the eye where it is broad and vanishes where it turns edge-on, which is what reads
+ * as ribbon rather than tube.
  */
 function ribbonPath() {
-  const { reach, segment, turns } = Wave;
-  const points = turnPoints();
+  const edge: string[] = [];
+  const back: string[] = [];
 
-  const edge = (from: { x: number; y: number }, to: { x: number; y: number }) => {
-    const lead = from.y < to.y ? segment * reach : -segment * reach;
-    return (
-      ` C${from.x.toFixed(1)} ${(from.y + lead).toFixed(1)}` +
-      ` ${to.x.toFixed(1)} ${(to.y - lead).toFixed(1)}` +
-      ` ${to.x.toFixed(1)} ${to.y.toFixed(1)}`
-    );
+  for (let i = 0; i <= Samples; i += 1) {
+    const { x, y, nx, ny, half } = sampleCourse(i / Samples);
+
+    edge.push(`${(x + nx * half).toFixed(1)} ${(y + ny * half).toFixed(1)}`);
+    back.push(`${(x - nx * half).toFixed(1)} ${(y - ny * half).toFixed(1)}`);
+  }
+
+  // Down one edge, across the end, back up the other, closed.
+  return {
+    path: `M${edge[0]} L${edge.slice(1).join(' L')} L${back.reverse().join(' L')} Z`,
+    height: Frame.height,
   };
-
-  // Down the outer edge...
-  let path = `M${(points[0].x + points[0].half).toFixed(1)} ${points[0].y}`;
-  for (let i = 1; i <= turns; i += 1) {
-    path += edge(
-      { x: points[i - 1].x + points[i - 1].half, y: points[i - 1].y },
-      { x: points[i].x + points[i].half, y: points[i].y }
-    );
-  }
-
-  // ...across the bottom, which is flush with the frame so it reads as running off
-  // the edge rather than stopping.
-  path += ` L${(points[turns].x - points[turns].half).toFixed(1)} ${points[turns].y}`;
-
-  // ...and back up the inner edge.
-  for (let i = turns; i >= 1; i -= 1) {
-    path += edge(
-      { x: points[i].x - points[i].half, y: points[i].y },
-      { x: points[i - 1].x - points[i - 1].half, y: points[i - 1].y }
-    );
-  }
-
-  return { path: `${path} Z`, height: segment * turns };
 }
 
 function gradientStops() {
@@ -194,7 +180,7 @@ function waveSource(opacity: number) {
   // Filled, not stroked. See ribbonPath for why.
   return svgSource(
     `<path d="${path}" fill="url(#r)" opacity="${opacity}"/>`,
-    `0 0 ${Wave.frame} ${height}`,
+    `0 0 ${Frame.width} ${height}`,
     /*
      * Bottom to top, so the warm end of the gradient is at the head of the ribbon
      * and the teal at its foot — the way the guide prints this element.
