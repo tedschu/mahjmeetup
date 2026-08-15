@@ -5,13 +5,14 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LeagueDetail } from '@/components/league-detail';
 import { GradientButton } from '@/components/button';
+import { LeagueDetail } from '@/components/league-detail';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -29,19 +30,30 @@ import { useTheme } from '@/hooks/use-theme';
 import { createLeague, fetchMyLeagues, type MyLeague } from '@/lib/leagues';
 import { supabase } from '@/lib/supabase';
 
-/** Creating a league is two decisions: what it is called and what colour it is. */
+/**
+ * Creating a league: what it is called, what colour it is, and whether anyone can
+ * find it.
+ */
 function NewLeagueForm({
   onCreate,
   onCancel,
   busy,
 }: {
-  onCreate: (name: string, color: LeagueColor) => void;
+  onCreate: (
+    name: string,
+    color: LeagueColor,
+    visibility: { is_public: boolean; max_members: number | null }
+  ) => void;
   onCancel: () => void;
   busy: boolean;
 }) {
   const theme = useTheme();
   const [name, setName] = useState('');
   const [color, setColor] = useState<LeagueColor>('blue');
+  // Private by default. Making a group of people discoverable is a choice someone
+  // should make on purpose, not one they get by leaving a switch alone.
+  const [isPublic, setIsPublic] = useState(false);
+  const [maxMembers, setMaxMembers] = useState('');
 
   return (
     <ThemedView type="background" style={[styles.card, { borderColor: theme.rule }]}>
@@ -78,6 +90,46 @@ function NewLeagueForm({
         ))}
       </View>
 
+      <View style={styles.toggleRow}>
+        <View style={styles.toggleText}>
+          <ThemedText type="label" themeColor="textSecondary">
+            Open to join
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {isPublic
+              ? 'Anyone signed in can find this league in Browse and join it.'
+              : 'Invite-only. Only people you send the link to can join.'}
+          </ThemedText>
+        </View>
+        <Switch
+          value={isPublic}
+          onValueChange={setIsPublic}
+          trackColor={{ true: theme.accent, false: theme.rule }}
+        />
+      </View>
+
+      {/* Only relevant once the league is discoverable — a private league's size
+          is governed by who you send the link to. */}
+      {isPublic ? (
+        <View style={styles.field}>
+          <ThemedText type="label" themeColor="textSecondary">
+            Member limit
+          </ThemedText>
+          <TextInput
+            value={maxMembers}
+            onChangeText={(next) => setMaxMembers(next.replace(/[^0-9]/g, ''))}
+            placeholder="No limit"
+            keyboardType="number-pad"
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.input, { color: theme.text, borderColor: theme.rule }]}
+          />
+          <ThemedText type="small" themeColor="textSecondary">
+            Browse stops offering the league once it is full. Leave blank for no
+            limit.
+          </ThemedText>
+        </View>
+      ) : null}
+
       <View style={styles.formActions}>
         <Pressable onPress={onCancel} style={({ pressed }) => pressed && styles.pressed}>
           <ThemedView type="backgroundElement" style={styles.secondaryButton}>
@@ -87,7 +139,14 @@ function NewLeagueForm({
           </ThemedView>
         </Pressable>
         <Pressable
-          onPress={() => onCreate(name, color)}
+          onPress={() =>
+            onCreate(name, color, {
+              is_public: isPublic,
+              // Blank means no cap. Parsed here rather than stored as a number so
+              // the field can be genuinely empty rather than showing a 0.
+              max_members: isPublic && maxMembers ? Number(maxMembers) : null,
+            })
+          }
           disabled={busy || name.trim().length === 0}
           style={({ pressed }) => pressed && styles.pressed}>
           <View
@@ -152,12 +211,16 @@ export default function LeaguesScreen() {
     }, [load])
   );
 
-  const create = async (name: string, color: LeagueColor) => {
+  const create = async (
+    name: string,
+    color: LeagueColor,
+    visibility: { is_public: boolean; max_members: number | null }
+  ) => {
     if (!userId) return;
 
     setBusy(true);
     try {
-      const id = await createLeague(userId, name, color);
+      const id = await createLeague(userId, name, color, visibility);
       await load();
       setIsCreating(false);
       // Straight into the new league, because the next thing anyone wants is the
@@ -312,6 +375,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: Spacing.two,
     marginTop: Spacing.one,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  toggleText: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  field: {
+    gap: Spacing.one,
   },
   primaryButton: {
     paddingVertical: Spacing.two,

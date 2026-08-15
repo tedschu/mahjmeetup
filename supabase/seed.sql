@@ -177,13 +177,16 @@ update public.matches set status = 'completed'
 -- A league with six members, so the draw has to split them across two tables.
 -- Ted organizes it; seat_league_creator_after_insert makes that happen, so only
 -- the other five are inserted below.
-insert into public.leagues (id, name, color, created_by, invite_token)
+insert into public.leagues (id, name, color, created_by, invite_token, is_public, max_members)
 values (
   'bbbbbbbb-0000-0000-0000-000000000001',
   'Fox Valley League',
   'gold',
   '11111111-1111-1111-1111-111111111111',
-  'seed-invite-1'
+  'seed-invite-1',
+  -- Public with a cap of eight against six members, so Browse has a league with
+  -- seats left to show. Ted is in this one, which is the "You're in" case.
+  true, 8
 );
 
 insert into public.league_members (league_id, profile_id, role)
@@ -195,7 +198,8 @@ values
   ('bbbbbbbb-0000-0000-0000-000000000001', '66666666-6666-6666-6666-666666666666', 'member');
 
 -- A second league Ted is NOT in, to prove the standings switcher only offers the
--- leagues you belong to and that RLS hides the rest.
+-- leagues you belong to and that RLS hides the rest. Left private, which also
+-- proves Browse does not offer a league that has not opted in.
 insert into public.leagues (id, name, color, created_by, invite_token)
 values (
   'bbbbbbbb-0000-0000-0000-000000000002',
@@ -204,6 +208,53 @@ values (
   '22222222-2222-2222-2222-222222222222',
   'seed-invite-2'
 );
+
+-- A public league Ted is NOT in, which is the case Browse exists to serve: a
+-- joinable league with room and a meetup nearby.
+insert into public.leagues (id, name, color, created_by, invite_token, is_public, max_members)
+values (
+  'bbbbbbbb-0000-0000-0000-000000000003',
+  'Riverside Mahjong Club',
+  'teal',
+  '22222222-2222-2222-2222-222222222222',
+  'seed-invite-3',
+  true, 8
+);
+
+insert into public.league_members (league_id, profile_id, role)
+values
+  ('bbbbbbbb-0000-0000-0000-000000000003', '33333333-3333-3333-3333-333333333333', 'member');
+
+insert into public.seasons (id, league_id, name)
+values (
+  'cccccccc-0000-0000-0000-000000000002',
+  'bbbbbbbb-0000-0000-0000-000000000003',
+  'Fall 2026'
+);
+
+-- One meetup, three miles from Brookline, so the league survives a 5-mile filter.
+insert into public.league_sessions (season_id, sequence, date_time, location, latitude, longitude)
+values (
+  'cccccccc-0000-0000-0000-000000000002', 1,
+  date_trunc('day', now() at time zone 'America/Chicago')
+    + interval '5 days' + interval '19 hours',
+  'Riverside Community Room', 42.3600, -71.0900
+);
+
+-- And a full public league, which Browse must not offer at all: two of two taken.
+insert into public.leagues (id, name, color, created_by, invite_token, is_public, max_members)
+values (
+  'bbbbbbbb-0000-0000-0000-000000000004',
+  'Full House Club',
+  'orange',
+  '22222222-2222-2222-2222-222222222222',
+  'seed-invite-4',
+  true, 2
+);
+
+insert into public.league_members (league_id, profile_id, role)
+values
+  ('bbbbbbbb-0000-0000-0000-000000000004', '33333333-3333-3333-3333-333333333333', 'member');
 
 insert into public.seasons (id, league_id, name)
 values (

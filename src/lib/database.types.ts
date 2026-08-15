@@ -89,8 +89,10 @@ export type Database = {
           created_at: string
           date_time: string
           id: string
+          latitude: number | null
           location: string
           location_detail: string | null
+          longitude: number | null
           season_id: string
           sequence: number
         }
@@ -98,8 +100,10 @@ export type Database = {
           created_at?: string
           date_time: string
           id?: string
+          latitude?: number | null
           location: string
           location_detail?: string | null
+          longitude?: number | null
           season_id: string
           sequence: number
         }
@@ -107,8 +111,10 @@ export type Database = {
           created_at?: string
           date_time?: string
           id?: string
+          latitude?: number | null
           location?: string
           location_detail?: string | null
+          longitude?: number | null
           season_id?: string
           sequence?: number
         }
@@ -129,6 +135,8 @@ export type Database = {
           created_by: string
           id: string
           invite_token: string
+          is_public: boolean
+          max_members: number | null
           name: string
         }
         Insert: {
@@ -137,6 +145,8 @@ export type Database = {
           created_by: string
           id?: string
           invite_token?: string
+          is_public?: boolean
+          max_members?: number | null
           name: string
         }
         Update: {
@@ -145,6 +155,8 @@ export type Database = {
           created_by?: string
           id?: string
           invite_token?: string
+          is_public?: boolean
+          max_members?: number | null
           name?: string
         }
         Relationships: [
@@ -422,8 +434,25 @@ export type Database = {
       is_league_member: { Args: { p_league: string }; Returns: boolean }
       is_league_organizer: { Args: { p_league: string }; Returns: boolean }
       join_league_with_token: { Args: { p_token: string }; Returns: string }
+      join_public_league: { Args: { p_league_id: string }; Returns: string }
       match_seat_limit: { Args: never; Returns: number }
       new_invite_token: { Args: never; Returns: string }
+      public_leagues: {
+        Args: never
+        Returns: {
+          color: string
+          id: string
+          is_member: boolean
+          max_members: number
+          member_count: number
+          name: string
+          next_latitude: number
+          next_location: string
+          next_longitude: number
+          next_meetup: string
+          seats_left: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

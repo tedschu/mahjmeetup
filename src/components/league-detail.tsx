@@ -1,9 +1,18 @@
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
+import { PlaceAutocompleteInput } from '@/components/place-autocomplete-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CardShadow, LeagueColors, OnAccent, Radius, Spacing } from '@/constants/theme';
@@ -18,12 +27,15 @@ import {
   fetchSessions,
   inviteUrlFor,
   leaveLeague,
+  updateLeagueVisibility,
   type LeagueMember,
   type LeagueSession,
   type MyLeague,
   type Season,
 } from '@/lib/leagues';
+import { type Coordinates } from '@/lib/geo';
 import { formatWhen, parseTimeOfDay, SEATS_PER_MATCH } from '@/lib/matches';
+import { fetchPlaceLocation } from '@/lib/places';
 
 /** Local wall-clock date, matching the match sheet's field. */
 function todayISO() {
@@ -82,10 +94,22 @@ export function LeagueDetail({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const [isPublic, setIsPublic] = useState(league.is_public);
+  const [maxMembers, setMaxMembers] = useState(
+    league.max_members === null ? '' : String(league.max_members)
+  );
+
   const [isAddingSession, setIsAddingSession] = useState(false);
   const [sessionDate, setSessionDate] = useState(todayISO());
   const [sessionTime, setSessionTime] = useState('7:00 pm');
+  const [sessionDetail, setSessionDetail] = useState<string | null>(null);
   const [sessionVenue, setSessionVenue] = useState('');
+  /**
+   * The meetup's position, resolved when a suggestion is picked. This is what
+   * Browse measures a public league's distance against, so a league that wants to
+   * be findable wants its meetups picked from the list rather than typed.
+   */
+  const [sessionAt, setSessionAt] = useState<Coordinates | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -178,10 +202,14 @@ export function LeagueDetail({
         sequence: sessions.length + 1,
         date_time: at,
         location: sessionVenue.trim(),
-        location_detail: null,
+        location_detail: sessionDetail,
+        latitude: sessionAt?.latitude ?? null,
+        longitude: sessionAt?.longitude ?? null,
       });
       setIsAddingSession(false);
       setSessionVenue('');
+      setSessionDetail(null);
+      setSessionAt(null);
       await reloadSessions();
       setError(null);
     } catch (cause) {
@@ -212,6 +240,37 @@ export function LeagueDetail({
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not remove that meetup.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /**
+   * Writes both fields together, because they are one decision: a cap is
+   * meaningless while the league is invite-only, and publishing without one is a
+   * different offer than publishing with one.
+   *
+   * Optimistic on the switch so it does not lag a tap, and reverted if the write
+   * fails — leaving a switch showing "open" on a league that is not would be worse
+   * than a flicker.
+   */
+  const saveVisibility = async (nextPublic: boolean, nextMax: string) => {
+    const previous = { isPublic, maxMembers };
+    setIsPublic(nextPublic);
+    setMaxMembers(nextMax);
+    setBusy('visibility');
+
+    try {
+      await updateLeagueVisibility(league.id, {
+        is_public: nextPublic,
+        max_members: nextPublic && nextMax ? Number(nextMax) : null,
+      });
+      onChanged();
+      setError(null);
+    } catch (cause) {
+      setIsPublic(previous.isPublic);
+      setMaxMembers(previous.maxMembers);
+      setError(cause instanceof Error ? cause.message : 'Could not change who can join.');
     } finally {
       setBusy(null);
     }
@@ -281,6 +340,55 @@ export function LeagueDetail({
           Anyone who opens this link and signs in joins the league.
         </ThemedText>
       </ThemedView>
+
+      {/* Discoverability, organizers only. A member should not be able to publish
+          a group they do not run. The database agrees — the update policy on
+          leagues is organizer-only — so this is the UI matching the rule rather
+          than the rule itself. */}
+      {isOrganizer ? (
+        <ThemedView type="background" style={[styles.card, { borderColor: theme.rule }]}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleText}>
+              <ThemedText type="label" themeColor="textSecondary">
+                Open to join
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {isPublic
+                  ? 'Listed in Browse for anyone signed in, until it is full.'
+                  : 'Invite-only. Only people with the link above can join.'}
+              </ThemedText>
+            </View>
+            <Switch
+              value={isPublic}
+              onValueChange={(next) => saveVisibility(next, maxMembers)}
+              disabled={busy === 'visibility'}
+              trackColor={{ true: theme.accent, false: theme.rule }}
+            />
+          </View>
+
+          {isPublic ? (
+            <View style={styles.field}>
+              <ThemedText type="label" themeColor="textSecondary">
+                Member limit
+              </ThemedText>
+              <TextInput
+                value={maxMembers}
+                onChangeText={(next) => setMaxMembers(next.replace(/[^0-9]/g, ''))}
+                // Saved on blur rather than per keystroke, so typing "12" does not
+                // briefly publish a league capped at 1.
+                onBlur={() => saveVisibility(isPublic, maxMembers)}
+                placeholder="No limit"
+                keyboardType="number-pad"
+                placeholderTextColor={theme.textSecondary}
+                style={[styles.input, { color: theme.text, borderColor: theme.rule }]}
+              />
+              <ThemedText type="small" themeColor="textSecondary">
+                {members.length} of {maxMembers || '∞'} taken. Blank means no limit.
+              </ThemedText>
+            </View>
+          ) : null}
+        </ThemedView>
+      ) : null}
 
       <ThemedView type="background" style={[styles.card, { borderColor: theme.rule }]}>
         <ThemedText type="label" themeColor="textSecondary">
@@ -391,12 +499,24 @@ export function LeagueDetail({
                   ]}
                 />
               </View>
-              <TextInput
+              {/* Autocompleted rather than typed, so the meetup carries a
+                  position — which is how far away Browse says this league is. */}
+              <PlaceAutocompleteInput
+                label="Venue"
                 value={sessionVenue}
-                onChangeText={setSessionVenue}
+                onChangeText={(next) => {
+                  setSessionVenue(next);
+                  setSessionDetail(null);
+                  setSessionAt(null);
+                }}
+                onSelectPlace={(suggestion) => {
+                  setSessionVenue(suggestion.mainText);
+                  setSessionDetail(suggestion.secondaryText);
+                  setSessionAt(null);
+                  fetchPlaceLocation(suggestion.placeId).then(setSessionAt);
+                }}
                 placeholder="Where everyone meets"
-                placeholderTextColor={theme.textSecondary}
-                style={[styles.input, { color: theme.text, borderColor: theme.rule }]}
+                kind="venue"
               />
               <Pressable onPress={addSession} style={({ pressed }) => pressed && styles.pressed}>
                 <View style={[styles.primaryButton, { backgroundColor: tint }]}>
@@ -599,6 +719,19 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  toggleText: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  field: {
+    gap: Spacing.one,
   },
   primaryButton: {
     paddingVertical: Spacing.two,

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrowseFilterBar, defaultFilters, type BrowseFilters } from '@/components/browse-filters';
 import { GradientButton } from '@/components/button';
+import { LeagueCard } from '@/components/league-card';
 import { MatchCard } from '@/components/match-card';
 import { MatchSheet } from '@/components/match-sheet';
 import { Ribbon } from '@/components/ribbon';
@@ -28,18 +29,41 @@ import {
   SEATS_PER_MATCH,
   type Match,
 } from '@/lib/matches';
+import { fetchPublicLeagues, joinPublicLeague, type PublicLeague } from '@/lib/leagues';
 import { fetchMyHome } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 
 /**
- * How far a match is from the member's town, or null when either end has no
+ * How far something is from the member's town, or null when either end has no
  * coordinates.
  */
-function distanceFor(match: Match, home: Coordinates | null) {
+function distanceFrom(
+  home: Coordinates | null,
+  point: { latitude?: number | null; longitude?: number | null }
+) {
   if (!home) return null;
-  const where = coordinatesOf(match);
+  const where = coordinatesOf(point);
   return where ? milesBetween(home, where) : null;
 }
+
+/**
+ * A league's distance is measured to its next meetup, which is the only venue it
+ * has — different sessions can be in different places. A league with no meetup
+ * scheduled, or one whose venue was typed rather than picked, has no distance and
+ * so is never filtered out by one.
+ */
+function leagueDistance(league: PublicLeague, home: Coordinates | null) {
+  return distanceFrom(home, { latitude: league.next_latitude, longitude: league.next_longitude });
+}
+
+/**
+ * Browse lists two kinds of thing: matches to sit down at, and public leagues to
+ * join. A tagged union rather than two lists, so one distance filter and one
+ * empty state cover both.
+ */
+type Row =
+  | { key: string; kind: 'league'; league: PublicLeague; distance: number | null }
+  | { key: string; kind: 'match'; match: Match; distance: number | null };
 
 /**
  * Whether a match survives the filters.
@@ -59,7 +83,27 @@ function keep(match: Match, filters: BrowseFilters, home: Coordinates | null) {
   if (filters.times.length > 0 && !filters.times.includes(timeOfDayOf(at))) return false;
 
   if (filters.distance !== null) {
-    const miles = distanceFor(match, home);
+    const miles = distanceFrom(home, match);
+    if (miles !== null && miles > filters.distance) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Whether a public league belongs in the list.
+ *
+ * Full leagues are dropped — there is nothing to offer — but one you are already
+ * in stays, so that joining visibly succeeds instead of the card silently
+ * vanishing. Day and time-of-day filters are not applied: they describe when a
+ * single match is, and a league is a season of meetups rather than one date.
+ */
+function keepLeague(league: PublicLeague, filters: BrowseFilters, home: Coordinates | null) {
+  const full = league.seats_left !== null && league.seats_left <= 0;
+  if (full && !league.is_member) return false;
+
+  if (filters.distance !== null) {
+    const miles = leagueDistance(league, home);
     if (miles !== null && miles > filters.distance) return false;
   }
 
@@ -128,6 +172,8 @@ export default function BrowseMatchesScreen() {
    * needs it, and a member can change their town on Profile mid-session.
    */
   const [home, setHome] = useState<Coordinates | null>(null);
+  const [leagues, setLeagues] = useState<PublicLeague[]>([]);
+  const [joiningLeagueId, setJoiningLeagueId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -149,6 +195,9 @@ export default function BrowseMatchesScreen() {
       setMatches(await fetchUpcomingMatches());
       // Never throws — a failed lookup just means no distance filtering.
       setHome(await fetchMyHome(user.id));
+      // Swallowed on purpose: a directory that fails to load should not take the
+      // list of matches down with it.
+      setLeagues(await fetchPublicLeagues().catch(() => []));
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load matches.');
@@ -195,13 +244,48 @@ export default function BrowseMatchesScreen() {
     [load, userId]
   );
 
+  const joinLeague = useCallback(
+    async (leagueId: string) => {
+      setJoiningLeagueId(leagueId);
+      try {
+        await joinPublicLeague(leagueId);
+        await load();
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Could not join that league.');
+      } finally {
+        setJoiningLeagueId(null);
+      }
+    },
+    [load]
+  );
+
   const visible = matches.filter((match) => keep(match, filters, home));
   // Counted over what is on screen, not over everything loaded. Counting the
   // whole list put "4 tables open" above a filtered list of one.
   const openCount = visible.filter((match) => match.status === 'open').length;
+  const visibleLeagues = leagues.filter((league) => keepLeague(league, filters, home));
+
+  // Leagues first: there are few of them, and joining one is the bigger
+  // commitment, so it should not be buried under a season's worth of tables.
+  const rows: Row[] = [
+    ...visibleLeagues.map((league) => ({
+      key: `league-${league.id}`,
+      kind: 'league' as const,
+      league,
+      distance: leagueDistance(league, home),
+    })),
+    ...visible.map((match) => ({
+      key: `match-${match.id}`,
+      kind: 'match' as const,
+      match,
+      distance: distanceFrom(home, match),
+    })),
+  ];
+
   // Distinguishes "nothing on at all" from "your filters hid everything", which
   // want different words and different fixes.
-  const hiddenByFilters = matches.length - visible.length;
+  const hiddenByFilters =
+    matches.length - visible.length + (leagues.length - visibleLeagues.length);
 
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
@@ -246,24 +330,33 @@ export default function BrowseMatchesScreen() {
           <ActivityIndicator style={styles.spinner} />
         ) : (
           <FlatList
-            data={visible}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <MatchCard
-                match={item}
-                userId={userId ?? ''}
-                distance={distanceFor(item, home)}
-                action={
-                  <SeatButton
-                    match={item}
-                    userId={userId ?? ''}
-                    busy={busyMatchId === item.id}
-                    onJoin={() => changeSeat(item.id, joinMatch)}
-                    onLeave={() => changeSeat(item.id, leaveMatch)}
-                  />
-                }
-              />
-            )}
+            data={rows}
+            keyExtractor={(row) => row.key}
+            renderItem={({ item: row }) =>
+              row.kind === 'league' ? (
+                <LeagueCard
+                  league={row.league}
+                  distance={row.distance}
+                  busy={joiningLeagueId === row.league.id}
+                  onJoin={() => joinLeague(row.league.id)}
+                />
+              ) : (
+                <MatchCard
+                  match={row.match}
+                  userId={userId ?? ''}
+                  distance={row.distance}
+                  action={
+                    <SeatButton
+                      match={row.match}
+                      userId={userId ?? ''}
+                      busy={busyMatchId === row.match.id}
+                      onJoin={() => changeSeat(row.match.id, joinMatch)}
+                      onLeave={() => changeSeat(row.match.id, leaveMatch)}
+                    />
+                  }
+                />
+              )
+            }
             contentContainerStyle={styles.listContent}
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={
@@ -273,8 +366,8 @@ export default function BrowseMatchesScreen() {
                 <Ribbon width={120} height={160} opacity={0.5} />
                 <ThemedText style={styles.centered} themeColor="textSecondary">
                   {hiddenByFilters > 0
-                    ? `No matches fit these filters. ${hiddenByFilters} ${
-                        hiddenByFilters === 1 ? 'match is' : 'matches are'
+                    ? `Nothing fits these filters. ${hiddenByFilters} ${
+                        hiddenByFilters === 1 ? 'is' : 'are'
                       } hidden — try a wider distance.`
                     : 'No upcoming matches. Propose one to get a table going.'}
                 </ThemedText>

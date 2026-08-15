@@ -13,6 +13,33 @@ export type League = {
   color: LeagueColor;
   created_by: string;
   invite_token: string;
+  /** Discoverable from Browse. Off unless the organizer turns it on. */
+  is_public: boolean;
+  /** The organizer's cap, or null for none. */
+  max_members: number | null;
+};
+
+/**
+ * A public league as it appears in Browse, from the `public_leagues()` function.
+ *
+ * Deliberately not a `League`: it carries no `invite_token`, because that is the
+ * credential that joins a league and would bypass the capacity check. Joining
+ * from here goes through `joinPublicLeague`.
+ */
+export type PublicLeague = {
+  id: string;
+  name: string;
+  color: LeagueColor;
+  member_count: number;
+  max_members: number | null;
+  /** Null when the organizer set no cap, which means room without saying how much. */
+  seats_left: number | null;
+  is_member: boolean;
+  next_meetup: string | null;
+  next_location: string | null;
+  /** Null for a meetup whose venue was typed rather than picked. */
+  next_latitude: number | null;
+  next_longitude: number | null;
 };
 
 /** A league plus where the signed-in member stands in it. */
@@ -60,7 +87,9 @@ export type LeagueStanding = {
 export async function fetchMyLeagues(userId: string): Promise<MyLeague[]> {
   const { data, error } = await supabase
     .from('league_members')
-    .select('role, league:leagues (id, name, color, created_by, invite_token)')
+    .select(
+      'role, league:leagues (id, name, color, created_by, invite_token, is_public, max_members)'
+    )
     .eq('profile_id', userId)
     .order('joined_at');
 
@@ -81,16 +110,51 @@ export async function fetchMyLeagues(userId: string): Promise<MyLeague[]> {
 export async function createLeague(
   userId: string,
   name: string,
-  color: LeagueColor
+  color: LeagueColor,
+  visibility: { is_public: boolean; max_members: number | null } = {
+    is_public: false,
+    max_members: null,
+  }
 ): Promise<string> {
   const { data, error } = await supabase
     .from('leagues')
-    .insert({ name: name.trim(), color, created_by: userId })
+    .insert({ name: name.trim(), color, created_by: userId, ...visibility })
     .select('id')
     .single();
 
   if (error) throw error;
   return data.id;
+}
+
+/** Turn discoverability on or off, and set or clear the cap. Organizers only. */
+export async function updateLeagueVisibility(
+  leagueId: string,
+  changes: { is_public: boolean; max_members: number | null }
+) {
+  const { error } = await supabase.from('leagues').update(changes).eq('id', leagueId);
+  if (error) throw error;
+}
+
+/**
+ * Public leagues anyone signed in can find, with their next meetup.
+ *
+ * Read through a function rather than the table: the select policy on `leagues`
+ * is membership-based and widening it would expose every public league's invite
+ * token. See the migration for the full reasoning.
+ */
+export async function fetchPublicLeagues(): Promise<PublicLeague[]> {
+  const { data, error } = await supabase.rpc('public_leagues');
+  if (error) throw error;
+  return (data ?? []) as PublicLeague[];
+}
+
+/**
+ * Join a public league. Capacity is checked inside the same statement that
+ * inserts, so a stale seat count on the client cannot overfill a league.
+ */
+export async function joinPublicLeague(leagueId: string) {
+  const { error } = await supabase.rpc('join_public_league', { p_league_id: leagueId });
+  if (error) throw error;
 }
 
 export async function updateLeague(leagueId: string, changes: { name: string; color: LeagueColor }) {
@@ -175,7 +239,15 @@ export async function fetchSessions(seasonId: string): Promise<LeagueSession[]> 
 
 export async function createSession(
   seasonId: string,
-  session: { sequence: number; date_time: string; location: string; location_detail: string | null }
+  session: {
+    sequence: number;
+    date_time: string;
+    location: string;
+    location_detail: string | null;
+    /** Written together or not at all; Browse measures a league's distance here. */
+    latitude: number | null;
+    longitude: number | null;
+  }
 ): Promise<string> {
   const { data, error } = await supabase
     .from('league_sessions')
