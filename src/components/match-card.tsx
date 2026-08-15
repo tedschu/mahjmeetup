@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar, EmptySeat } from '@/components/avatar';
+import { MatchDetailSheet } from '@/components/match-detail-sheet';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { CardShadow, LeagueColors, Radius, Spacing, type LeagueColor } from '@/constants/theme';
 import { useTheme, type Theme } from '@/hooks/use-theme';
 import { formatMiles } from '@/lib/geo';
@@ -59,17 +59,17 @@ const AvatarSize = 30;
  * Who is at the table, as faces rather than a count. Overlapping keeps four of
  * them inside the space "2/4" used to take, and the empty rings mean the row
  * still says how many seats are left without spelling it out.
+ *
+ * Not a press target of its own any more. It used to open a roster sheet, but the
+ * whole card now opens a sheet that has the roster in it, and two overlapping
+ * targets doing almost the same thing was a coin toss over which one you hit.
  */
-function SeatAvatars({ match, onPress }: { match: Match; onPress: () => void }) {
+function SeatAvatars({ match }: { match: Match }) {
   const theme = useTheme();
   const empty = Math.max(0, SEATS_PER_MATCH - match.players.length);
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${match.players.length} of ${SEATS_PER_MATCH} seats taken. See who is coming.`}
-      style={({ pressed }) => [styles.avatars, pressed && styles.pressed]}>
+    <View style={styles.avatars}>
       {match.players.map((player, index) => (
         <View key={player.player_id} style={index > 0 ? styles.overlap : undefined}>
           <Avatar
@@ -86,62 +86,7 @@ function SeatAvatars({ match, onPress }: { match: Match; onPress: () => void }) 
           <EmptySeat size={AvatarSize} ring={theme.background} />
         </View>
       ))}
-    </Pressable>
-  );
-}
-
-/** The roster, opened from the avatars. Small because it answers one question. */
-function WhoIsComingSheet({
-  match,
-  visible,
-  onClose,
-}: {
-  match: Match;
-  visible: boolean;
-  onClose: () => void;
-}) {
-  const theme = useTheme();
-  const empty = Math.max(0, SEATS_PER_MATCH - match.players.length);
-
-  return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      {/* The backdrop closes it, so there is no dismiss button to place. */}
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <ThemedView style={styles.rosterSheet}>
-          <ThemedText type="subtitle">{match.location}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {match.players.length} of {SEATS_PER_MATCH} seats taken
-          </ThemedText>
-
-          <View style={styles.roster}>
-            {match.players.map((player) => (
-              <View key={player.player_id} style={styles.rosterRow}>
-                <Avatar person={player.profile ?? { name: null }} size={36} ring={theme.rule} />
-                <View style={styles.rosterName}>
-                  <ThemedText type="defaultSemiBold" numberOfLines={1}>
-                    {player.profile?.name ?? 'Unnamed member'}
-                  </ThemedText>
-                  {player.player_id === match.host_id ? (
-                    <ThemedText type="label" style={{ color: theme.accentWarmInk }}>
-                      Host
-                    </ThemedText>
-                  ) : null}
-                </View>
-              </View>
-            ))}
-
-            {Array.from({ length: empty }, (_, seat) => (
-              <View key={`open-${seat}`} style={styles.rosterRow}>
-                <EmptySeat size={36} ring={theme.rule} />
-                <ThemedText type="small" themeColor="textSecondary">
-                  Open seat
-                </ThemedText>
-              </View>
-            ))}
-          </View>
-        </ThemedView>
-      </Pressable>
-    </Modal>
+    </View>
   );
 }
 
@@ -155,6 +100,8 @@ export function MatchCard({
   userId,
   action,
   distance,
+  onEdit,
+  detailAction,
 }: {
   match: Match;
   userId: string;
@@ -167,11 +114,35 @@ export function MatchCard({
    * every card for a group that types its venues.
    */
   distance?: number | null;
+  /**
+   * Opens the screen's edit sheet on this match. Given by screens that own one;
+   * the detail sheet shows the control only to the host.
+   */
+  onEdit?: () => void;
+  /**
+   * A control to repeat inside the detail sheet — Browse's Join, so reading a
+   * match through to the end does not mean closing it to act.
+   *
+   * Deliberately separate from `action` rather than reusing it: My Matches' row
+   * contains an Edit button that opens a second modal, and running that from
+   * inside this one would stack two sheets on top of each other.
+   */
+  detailAction?: ReactNode;
 }) {
   const theme = useTheme();
-  const [showRoster, setShowRoster] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
   const standing = standingFor(match, userId);
   const { bar, ink, note, muted } = appearance(standing, theme);
+
+  /**
+   * Close, then hand over on the next frame. Presenting a modal in the same frame
+   * another is being dismissed drops the new one on iOS, which would read as the
+   * Edit button doing nothing at all.
+   */
+  const requestEdit = () => {
+    setShowDetail(false);
+    requestAnimationFrame(() => onEdit?.());
+  };
 
   return (
     <View
@@ -187,83 +158,107 @@ export function MatchCard({
         },
         muted && styles.muted,
       ]}>
-      <View style={styles.topRow}>
-        <View style={styles.titleBlock}>
-          {/* Two lines: a real venue name plus a town does not fit one at phone
-              width, and "Geneva Public Library Dist…" is not a venue. */}
-          <ThemedText type="subtitle" numberOfLines={2}>
-            {match.location}
+      {/*
+        Everything except the controls opens the sheet.
+
+        The action row is a sibling rather than a child of this Pressable, which is
+        what keeps "tap the card" from also meaning "tap Join". Nesting the two
+        would work on native, where the deepest view claims the touch, but not on
+        web: react-native-web presses are clicks, and a click bubbles up to every
+        handler above it.
+      */}
+      <Pressable
+        onPress={() => setShowDetail(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`${match.location}, ${formatWhen(match.date_time)}. ${
+          match.players.length
+        } of ${SEATS_PER_MATCH} seats taken. Open match details.`}
+        style={({ pressed }) => [styles.body, pressed && styles.pressed]}>
+        <View style={styles.topRow}>
+          <View style={styles.titleBlock}>
+            {/* Two lines: a real venue name plus a town does not fit one at phone
+                width, and "Geneva Public Library Dist…" is not a venue. */}
+            <ThemedText type="subtitle" numberOfLines={2}>
+              {match.location}
+            </ThemedText>
+            {match.location_detail ? (
+              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                {match.location_detail}
+              </ThemedText>
+            ) : null}
+            {/* Under the address, because it is a fact about the same thing. Absent
+                rather than "unknown" when there is nothing to say. */}
+            {typeof distance === 'number' ? (
+              <ThemedText type="small" style={{ color: theme.accentInk }}>
+                {formatMiles(distance)}
+              </ThemedText>
+            ) : null}
+          </View>
+          <SeatAvatars match={match} />
+        </View>
+
+        {/* When, kind, and standing share one line: three short facts that used to
+            take three full-width rows between them. */}
+        <View style={styles.metaRow}>
+          <ThemedText type="defaultSemiBold" themeColor="textSecondary">
+            {formatWhen(match.date_time)}
           </ThemedText>
-          {match.location_detail ? (
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-              {match.location_detail}
+          {/* Named and coloured, so you can tell at a glance which league a table
+              belongs to rather than just that it belongs to one.
+
+              The dot carries the league's colour and the label stays on secondary
+              ink. Four of the six league colours are pastels that fail contrast as
+              11px type, and letting only the dot be coloured also keeps a row of
+              tags from reading as six different kinds of text. */}
+          {match.league ? (
+            <View style={styles.leagueTag}>
+              <View
+                style={[
+                  styles.leagueDot,
+                  {
+                    backgroundColor:
+                      LeagueColors[match.league.color as LeagueColor] ?? theme.accent,
+                  },
+                ]}
+              />
+              <ThemedText type="label" themeColor="textSecondary">
+                {match.league.name}
+                {match.table_number ? ` · Table ${match.table_number}` : ''}
+              </ThemedText>
+            </View>
+          ) : null}
+          {match.supplies_provided ? (
+            <ThemedText type="label" themeColor="textSecondary">
+              Tiles provided
             </ThemedText>
           ) : null}
-          {/* Under the address, because it is a fact about the same thing. Absent
-              rather than "unknown" when there is nothing to say. */}
-          {typeof distance === 'number' ? (
-            <ThemedText type="small" style={{ color: theme.accentInk }}>
-              {formatMiles(distance)}
+          {note ? (
+            <ThemedText type="label" style={{ color: ink }}>
+              {note}
             </ThemedText>
           ) : null}
         </View>
-        <SeatAvatars match={match} onPress={() => setShowRoster(true)} />
-      </View>
 
-      {/* When, kind, and standing share one line: three short facts that used to
-          take three full-width rows between them. */}
-      <View style={styles.metaRow}>
-        <ThemedText type="defaultSemiBold" themeColor="textSecondary">
-          {formatWhen(match.date_time)}
-        </ThemedText>
-        {/* Named and coloured, so you can tell at a glance which league a table
-            belongs to rather than just that it belongs to one.
-
-            The dot carries the league's colour and the label stays on secondary
-            ink. Four of the six league colours are pastels that fail contrast as
-            11px type, and letting only the dot be coloured also keeps a row of
-            tags from reading as six different kinds of text. */}
-        {match.league ? (
-          <View style={styles.leagueTag}>
-            <View
-              style={[
-                styles.leagueDot,
-                { backgroundColor: LeagueColors[match.league.color as LeagueColor] ?? theme.accent },
-              ]}
-            />
-            <ThemedText type="label" themeColor="textSecondary">
-              {match.league.name}
-              {match.table_number ? ` · Table ${match.table_number}` : ''}
-            </ThemedText>
-          </View>
-        ) : null}
-        {match.supplies_provided ? (
-          <ThemedText type="label" themeColor="textSecondary">
-            Tiles provided
+        {match.notes ? (
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+            {match.notes}
           </ThemedText>
         ) : null}
-        {note ? (
-          <ThemedText type="label" style={{ color: ink }}>
-            {note}
-          </ThemedText>
-        ) : null}
-      </View>
-
-      {match.notes ? (
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
-          {match.notes}
-        </ThemedText>
-      ) : null}
+      </Pressable>
 
       {/* Controls get the bottom row to themselves at every width. Sharing a line
           with the player names meant one or the other was always being squeezed,
           and it needed a different layout on a phone; this needs neither. */}
       {action ? <View style={styles.actionRow}>{action}</View> : null}
 
-      <WhoIsComingSheet
+      <MatchDetailSheet
         match={match}
-        visible={showRoster}
-        onClose={() => setShowRoster(false)}
+        userId={userId}
+        distance={distance}
+        visible={showDetail}
+        onClose={() => setShowDetail(false)}
+        onEdit={onEdit ? requestEdit : undefined}
+        action={detailAction}
       />
     </View>
   );
@@ -297,6 +292,13 @@ const styles = StyleSheet.create({
   muted: {
     opacity: 0.62,
   },
+  /**
+   * The part of the card that opens the sheet. Carries the gap the card itself
+   * used to, so the rows inside it space as they did.
+   */
+  body: {
+    gap: Spacing.one,
+  },
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -319,32 +321,6 @@ const styles = StyleSheet.create({
   /** Each face sits partly under the one before it; the ring keeps them separable. */
   overlap: {
     marginLeft: -10,
-  },
-  backdrop: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.four,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  rosterSheet: {
-    width: '100%',
-    maxWidth: 360,
-    padding: Spacing.four,
-    borderRadius: Radius.card,
-    gap: Spacing.one,
-  },
-  roster: {
-    marginTop: Spacing.two,
-    gap: Spacing.three,
-  },
-  rosterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-  },
-  rosterName: {
-    flex: 1,
   },
   pressed: {
     opacity: 0.7,

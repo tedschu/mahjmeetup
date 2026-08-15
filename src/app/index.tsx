@@ -111,6 +111,19 @@ function keepLeague(league: PublicLeague, filters: BrowseFilters, home: Coordina
 }
 
 /**
+ * Whether `SeatButton` would draw anything.
+ *
+ * Asked before the detail sheet is handed one, because the sheet puts a rule above
+ * its footer and a rule over an empty row is just a line across the bottom of the
+ * screen. There is no way to ask a rendered element whether it came out null, so
+ * the condition lives here and both callers read it.
+ */
+function hasSeatControl(match: Match, userId: string) {
+  if (match.host_id === userId) return false;
+  return isSeated(match, userId) || match.players.length < SEATS_PER_MATCH;
+}
+
+/**
  * Only genuinely actionable states get a control. "Hosting" and "Full" used to
  * sit here styled like buttons while doing nothing; the card's edge bar and
  * standing label carry that now.
@@ -132,7 +145,7 @@ function SeatButton({
 
   // The host holds a seat for the life of the match; leaving would orphan it.
   // Calling a match off is an edit, and lives on My Matches.
-  if (match.host_id === userId) return null;
+  if (!hasSeatControl(match, userId)) return null;
   if (busy) return <ActivityIndicator />;
 
   if (isSeated(match, userId)) {
@@ -147,8 +160,6 @@ function SeatButton({
       </Pressable>
     );
   }
-
-  if (match.players.length >= SEATS_PER_MATCH) return null;
 
   return (
     <Pressable onPress={onJoin} style={({ pressed }) => pressed && styles.pressed}>
@@ -332,31 +343,42 @@ export default function BrowseMatchesScreen() {
           <FlatList
             data={rows}
             keyExtractor={(row) => row.key}
-            renderItem={({ item: row }) =>
-              row.kind === 'league' ? (
-                <LeagueCard
-                  league={row.league}
-                  distance={row.distance}
-                  busy={joiningLeagueId === row.league.id}
-                  onJoin={() => joinLeague(row.league.id)}
+            renderItem={({ item: row }) => {
+              if (row.kind === 'league') {
+                return (
+                  <LeagueCard
+                    league={row.league}
+                    distance={row.distance}
+                    busy={joiningLeagueId === row.league.id}
+                    onJoin={() => joinLeague(row.league.id)}
+                  />
+                );
+              }
+
+              // The same control on the card and inside its detail sheet, so
+              // reading a match through to the end is not a dead end.
+              const seat = (
+                <SeatButton
+                  match={row.match}
+                  userId={userId ?? ''}
+                  busy={busyMatchId === row.match.id}
+                  onJoin={() => changeSeat(row.match.id, joinMatch)}
+                  onLeave={() => changeSeat(row.match.id, leaveMatch)}
                 />
-              ) : (
+              );
+
+              return (
                 <MatchCard
                   match={row.match}
                   userId={userId ?? ''}
                   distance={row.distance}
-                  action={
-                    <SeatButton
-                      match={row.match}
-                      userId={userId ?? ''}
-                      busy={busyMatchId === row.match.id}
-                      onJoin={() => changeSeat(row.match.id, joinMatch)}
-                      onLeave={() => changeSeat(row.match.id, leaveMatch)}
-                    />
-                  }
+                  action={seat}
+                  // Undefined rather than an element that renders nothing, so the
+                  // sheet knows whether it has a footer to draw at all.
+                  detailAction={hasSeatControl(row.match, userId ?? '') ? seat : undefined}
                 />
-              )
-            }
+              );
+            }}
             contentContainerStyle={styles.listContent}
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={

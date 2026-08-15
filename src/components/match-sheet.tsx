@@ -110,7 +110,9 @@ export function MatchSheet({
 
     fetchMyLeagues(hostId)
       .then((found) => {
-        if (active) setLeagues(found);
+        // Archived leagues are not taking new play, so offering to count a match
+        // toward one would be a table nobody can ever see in its standings.
+        if (active) setLeagues(found.filter((league) => league.archived_at === null));
       })
       // A league picker that fails to load should not block posting a pick-up game.
       .catch(() => undefined);

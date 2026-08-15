@@ -69,6 +69,30 @@ export function formatWhen(dateTime: string) {
 }
 
 /**
+ * "Saturday, August 8 · 6:30 pm CDT".
+ *
+ * The long form, for the detail sheet. A card has to fit a venue and a date on
+ * one line and so abbreviates both; a sheet has the room to spell the day out,
+ * which is worth it when the question being answered is "can I make this?".
+ *
+ * The year appears only when it is not the current one, because "2026" on every
+ * row this year is noise that earns its place exactly once — in December, when
+ * January is a month away.
+ */
+export function formatFullWhen(dateTime: string) {
+  const date = new Date(dateTime);
+
+  const day = date.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    ...(date.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }),
+  });
+
+  return `${day} · ${formatTimeWithZone(date)}`;
+}
+
+/**
  * `hour12` is forced rather than left to the locale: a 24-hour clock is what we
  * are deliberately moving away from, and an en-GB browser would otherwise put it
  * straight back.

@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { ContactRows } from '@/components/contact-rows';
+import { EmailGroupButton } from '@/components/email-group-button';
 import { Icon } from '@/components/icon';
 import { PlaceAutocompleteInput } from '@/components/place-autocomplete-input';
 import { ThemedText } from '@/components/themed-text';
@@ -20,19 +22,28 @@ import { useTheme } from '@/hooks/use-theme';
 import {
   createSeason,
   createSession,
+  deleteLeague,
   deleteSession,
   drawSession,
+  fetchLeagueFootprint,
   fetchLeagueMembers,
   fetchSeasons,
   fetchSessions,
   inviteUrlFor,
   leaveLeague,
+  setLeagueArchived,
   updateLeagueVisibility,
+  type LeagueFootprint,
   type LeagueMember,
   type LeagueSession,
   type MyLeague,
   type Season,
 } from '@/lib/leagues';
+import {
+  fetchLeagueMemberEmails,
+  fetchLeagueOrganizerContact,
+  type Contact,
+} from '@/lib/contact';
 import { type Coordinates } from '@/lib/geo';
 import { formatWhen, parseTimeOfDay, SEATS_PER_MATCH } from '@/lib/matches';
 import { fetchPlaceLocation } from '@/lib/places';
@@ -84,6 +95,14 @@ export function LeagueDetail({
    */
   const tint = LeagueColors[league.color] ?? theme.accent;
   const isOrganizer = league.role === 'organizer';
+  /**
+   * An archived league is read-only: no new seasons, no new meetups, no draws, and
+   * nobody joining through either door. Everything already in it stays visible,
+   * which is the point of archiving rather than deleting.
+   */
+  const isArchived = league.archived_at !== null;
+  /** Organizers may act on the league itself; members may only leave it. */
+  const canRun = isOrganizer && !isArchived;
 
   const [members, setMembers] = useState<LeagueMember[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -111,6 +130,21 @@ export function LeagueDetail({
    */
   const [sessionAt, setSessionAt] = useState<Coordinates | null>(null);
 
+  /**
+   * What deleting would destroy. Read for organizers only, and only so the
+   * confirmation can state counts instead of gesturing at "all data" — which is
+   * the difference between a warning somebody reads and one they click past.
+   */
+  const [footprint, setFootprint] = useState<LeagueFootprint | null>(null);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+  /**
+   * How to reach the organizer. Only members get an answer — this whole screen is
+   * members-only, so in practice it is always available; the check lives in the
+   * database rather than here because that is where it has to hold.
+   */
+  const [organizer, setOrganizer] = useState<Contact | null>(null);
+
   const load = useCallback(async () => {
     try {
       const [roster, found] = await Promise.all([
@@ -128,7 +162,17 @@ export function LeagueDetail({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load this league.');
     }
-  }, [league.id]);
+
+    // Never throws, and deliberately after the block above: neither of these is
+    // worth failing the screen over. The footprint only decides what the delete
+    // confirmation is allowed to say, and a missing contact card is a missing
+    // card rather than a broken league.
+    setOrganizer(await fetchLeagueOrganizerContact(league.id));
+
+    if (isOrganizer) {
+      setFootprint(await fetchLeagueFootprint(league.id).catch(() => null));
+    }
+  }, [isOrganizer, league.id]);
 
   useEffect(() => {
     (async () => {
@@ -289,7 +333,58 @@ export function LeagueDetail({
     }
   };
 
+  /**
+   * Archive, or bring back. Stays on the screen either way rather than returning
+   * to the list, because the state it just changed is stated at the top of this
+   * one — going back would make the result invisible.
+   */
+  const toggleArchive = async () => {
+    setBusy('archive');
+    try {
+      await setLeagueArchived(league.id, !isArchived);
+      onChanged();
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not archive this league.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const remove = async () => {
+    setBusy('delete');
+    try {
+      await deleteLeague(league.id);
+      onChanged();
+      onBack();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not delete this league.');
+      setIsConfirmingDelete(false);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /**
+   * Deleting is offered only while nothing has been played.
+   *
+   * The same rule as a host deleting a match: once there is a record other people
+   * are in, it stops being one person's to erase, and archiving keeps the
+   * standings intact. Until the footprint has loaded the answer is "no", because
+   * offering an irreversible action on unknown data is the one mistake here that
+   * cannot be undone.
+   */
+  const canDelete = isOrganizer && footprint !== null && footprint.played === 0;
+
   const expectedTables = Math.ceil(members.length / SEATS_PER_MATCH);
+
+  /**
+   * The soonest meetup still to come, for prefilling a message to the members —
+   * a change of plan is the commonest thing an organizer writes about. Drawn from
+   * the season on screen, which is the one they are looking at.
+   */
+  const nextSession =
+    sessions.find((session) => new Date(session.date_time) >= new Date()) ?? null;
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -310,6 +405,21 @@ export function LeagueDetail({
         </View>
       </View>
 
+      {/* Stated once, at the top, before anything below it looks broken for no
+          apparent reason. */}
+      {isArchived ? (
+        <ThemedView
+          type="backgroundSelected"
+          style={[styles.notice, { borderColor: theme.accentWarm }]}>
+          <Icon name="archive" color={theme.accentWarmInk} size={18} />
+          <ThemedText type="small" style={[styles.noticeText, { color: theme.accentWarmInk }]}>
+            Archived. The standings and every table played are still here, but the
+            league is not listed anywhere, its invite link no longer works, and no
+            new meetups can be added.
+          </ThemedText>
+        </ThemedView>
+      ) : null}
+
       {error ? (
         <ThemedText type="small" style={{ color: theme.danger }}>
           {error}
@@ -328,8 +438,16 @@ export function LeagueDetail({
           {inviteUrlFor(league)}
         </ThemedText>
         <View style={styles.cardActions}>
-          <Pressable onPress={copyInvite} style={({ pressed }) => pressed && styles.pressed}>
-            <View style={[styles.primaryButton, { backgroundColor: tint }]}>
+          <Pressable
+            onPress={copyInvite}
+            disabled={isArchived}
+            style={({ pressed }) => pressed && styles.pressed}>
+            <View
+              style={[
+                styles.primaryButton,
+                { backgroundColor: tint },
+                isArchived && styles.disabled,
+              ]}>
               <ThemedText type="label" style={styles.primaryLabel}>
                 {copied ? 'Copied' : 'Copy link'}
               </ThemedText>
@@ -337,7 +455,9 @@ export function LeagueDetail({
           </Pressable>
         </View>
         <ThemedText type="small" themeColor="textSecondary">
-          Anyone who opens this link and signs in joins the league.
+          {isArchived
+            ? 'This link stops working while the league is archived. Unarchive it to let people join again.'
+            : 'Anyone who opens this link and signs in joins the league.'}
         </ThemedText>
       </ThemedView>
 
@@ -353,15 +473,17 @@ export function LeagueDetail({
                 Open to join
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {isPublic
-                  ? 'Listed in Browse for anyone signed in, until it is full.'
-                  : 'Invite-only. Only people with the link above can join.'}
+                {isArchived
+                  ? 'Archived leagues are never listed, whichever way this is set. The setting is kept for when you bring it back.'
+                  : isPublic
+                    ? 'Listed in Browse for anyone signed in, until it is full.'
+                    : 'Invite-only. Only people with the link above can join.'}
               </ThemedText>
             </View>
             <Switch
               value={isPublic}
               onValueChange={(next) => saveVisibility(next, maxMembers)}
-              disabled={busy === 'visibility'}
+              disabled={busy === 'visibility' || isArchived}
               trackColor={{ true: theme.accent, false: theme.rule }}
             />
           </View>
@@ -408,6 +530,50 @@ export function LeagueDetail({
             ) : null}
           </View>
         ))}
+
+        {/* Writing to the league, for whoever runs it. Under the roster it reaches,
+            and still offered on an archived league: telling members a season has
+            been wound up is exactly when it is wanted. */}
+        {isOrganizer && members.length > 1 ? (
+          <View style={styles.emailMembers}>
+            <EmailGroupButton
+              label="Email members"
+              gather={() => fetchLeagueMemberEmails(league.id)}
+              subject={`${league.name} · update`}
+              // The next meetup, when there is one, so the commonest message — a
+              // change of plan — starts from the thing being changed.
+              body={[
+                '',
+                '',
+                '—',
+                league.name,
+                nextSession
+                  ? `Next meetup: ${formatWhen(nextSession.date_time)} · ${nextSession.location}`
+                  : '',
+              ]
+                .filter((line, index) => index < 3 || line.length > 0)
+                .join('\n')}
+            />
+          </View>
+        ) : null}
+
+        {/* The organizer's details, for members of this league only. Worded from
+            the reader's side: an organizer looking at their own league should see
+            what everyone else can see about them, not be told how to email
+            themselves. */}
+        {organizer && (organizer.email || organizer.phone) ? (
+          <View style={[styles.contactBlock, { borderColor: theme.rule }]}>
+            <ThemedText type="label" themeColor="textSecondary">
+              {isOrganizer ? 'What members see' : `Reach ${organizer.name ?? 'the organizer'}`}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {isOrganizer
+                ? 'Everyone in this league can see these, so they can reach you.'
+                : 'Visible to members of this league.'}
+            </ThemedText>
+            <ContactRows contact={organizer} />
+          </View>
+        ) : null}
       </ThemedView>
 
       {/* Seasons. A league with none yet shows nothing to switch between, so the
@@ -417,7 +583,7 @@ export function LeagueDetail({
           <ThemedText type="label" themeColor="textSecondary">
             Season
           </ThemedText>
-          {isOrganizer ? (
+          {canRun ? (
             <Pressable onPress={addSeason} style={({ pressed }) => pressed && styles.pressed}>
               <ThemedText type="label" style={{ color: theme.accentInk }}>
                 {busy === 'season' ? 'Adding…' : '+ New season'}
@@ -461,7 +627,7 @@ export function LeagueDetail({
             <ThemedText type="label" themeColor="textSecondary">
               Meetups
             </ThemedText>
-            {isOrganizer ? (
+            {canRun ? (
               <Pressable
                 onPress={() => setIsAddingSession((current) => !current)}
                 style={({ pressed }) => pressed && styles.pressed}>
@@ -552,7 +718,7 @@ export function LeagueDetail({
                 </ThemedText>
               </View>
 
-              {isOrganizer ? (
+              {canRun ? (
                 <View style={styles.sessionActions}>
                   {busy === session.id ? (
                     <ActivityIndicator />
@@ -599,6 +765,106 @@ export function LeagueDetail({
               Drawn tables show up in My Matches for everyone seated at them.
             </ThemedText>
           ) : null}
+        </ThemedView>
+      ) : null}
+
+      {/* Winding the league up, organizers only.
+          Archiving leads because it is the reversible one, and because it is
+          almost always what "I'm done with this league" actually means. */}
+      {isOrganizer ? (
+        <ThemedView type="background" style={[styles.card, { borderColor: theme.rule }]}>
+          <ThemedText type="label" themeColor="textSecondary">
+            Wind it up
+          </ThemedText>
+
+          <ThemedText type="small" themeColor="textSecondary">
+            {isArchived
+              ? 'Bring the league back and it is listed and joinable again exactly as it was.'
+              : 'Archiving keeps every season, table and score, and stops the league taking anyone new. You can undo it.'}
+          </ThemedText>
+
+          <View style={styles.cardActions}>
+            <Pressable
+              onPress={toggleArchive}
+              disabled={busy === 'archive'}
+              style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedView
+                type="backgroundElement"
+                style={[styles.wideButton, { borderColor: theme.rule }]}>
+                <Icon name="archive" color={theme.textSecondary} size={18} />
+                <ThemedText type="label" themeColor="textSecondary">
+                  {busy === 'archive'
+                    ? 'Saving…'
+                    : isArchived
+                      ? 'Unarchive league'
+                      : 'Archive league'}
+                </ThemedText>
+              </ThemedView>
+            </Pressable>
+          </View>
+
+          {/* Deleting, when there is nothing played to lose. Two steps, and the
+              second one counts what goes rather than warning in the abstract. */}
+          <View style={[styles.removal, { borderColor: theme.rule }]}>
+            {canDelete ? (
+              isConfirmingDelete ? (
+                <>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    This erases the league for all {members.length}{' '}
+                    {members.length === 1 ? 'member' : 'members'}
+                    {footprint && footprint.seasons > 0
+                      ? `, along with ${footprint.seasons} ${
+                          footprint.seasons === 1 ? 'season' : 'seasons'
+                        }`
+                      : ''}
+                    {footprint && footprint.tables > 0
+                      ? ` and ${footprint.tables} drawn ${
+                          footprint.tables === 1 ? 'table' : 'tables'
+                        }`
+                      : ''}
+                    . It cannot be undone. Matches somebody tagged with this league
+                    stay, as pick-up games.
+                  </ThemedText>
+                  <View style={styles.removalActions}>
+                    <Pressable
+                      onPress={() => setIsConfirmingDelete(false)}
+                      style={({ pressed }) => pressed && styles.pressed}>
+                      <ThemedText type="label" themeColor="textSecondary">
+                        Keep it
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      onPress={remove}
+                      disabled={busy === 'delete'}
+                      style={({ pressed }) => pressed && styles.pressed}>
+                      <ThemedText type="label" style={{ color: theme.danger }}>
+                        {busy === 'delete' ? 'Deleting…' : 'Yes, delete this league'}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <Pressable
+                  onPress={() => setIsConfirmingDelete(true)}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedText type="label" style={{ color: theme.danger }}>
+                    Delete league
+                  </ThemedText>
+                </Pressable>
+              )
+            ) : (
+              // Not offered rather than offered-and-refused, and it says why.
+              // Deleting here would cascade through the sessions and take the
+              // recorded scores with them — see deleteLeague.
+              <ThemedText type="small" themeColor="textSecondary">
+                {footprint === null
+                  ? 'Checking what this league holds…'
+                  : `${footprint.played} ${
+                      footprint.played === 1 ? 'table has' : 'tables have'
+                    } been played, so this league can no longer be deleted — the scores are part of everyone's standings. Archive it instead.`}
+              </ThemedText>
+            )}
+          </View>
         </ThemedView>
       ) : null}
 
@@ -653,6 +919,52 @@ const styles = StyleSheet.create({
   cardActions: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
+  },
+  /** The archived banner: an outlined highlight rather than a card, so it reads as a state and not another section. */
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+  },
+  noticeText: {
+    flex: 1,
+  },
+  emailMembers: {
+    marginTop: Spacing.two,
+  },
+  /** Ruled off from the roster above it: it is about one member, not all of them. */
+  contactBlock: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+    marginTop: Spacing.one,
+    gap: Spacing.half,
+  },
+  /** A labelled outline button, for an action that is neither primary nor destructive. */
+  wideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    minHeight: 40,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  /** Separates the irreversible action from the reversible one above it. */
+  removal: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+    marginTop: Spacing.one,
+    gap: Spacing.two,
+  },
+  removalActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.four,
+    minHeight: 44,
   },
   link: {
     fontFamily: 'monospace',

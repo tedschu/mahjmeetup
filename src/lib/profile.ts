@@ -7,6 +7,12 @@ export type ExperienceLevel = (typeof EXPERIENCE_LEVELS)[number];
 export type Profile = {
   id: string;
   name: string | null;
+  /**
+   * Kept in `profile_contacts`, not on the profiles row, because the select policy
+   * on `profiles` is `using (true)` and this is not something to publish. Presented
+   * here as one profile anyway — the split is a storage rule, not something the
+   * screen should have to know. See 20260815214500.
+   */
   phone: string | null;
   town: string | null;
   /**
@@ -27,15 +33,25 @@ export async function fetchMyProfile(): Promise<{ profile: Profile; email: strin
 
   if (!user) throw new Error('You are signed out.');
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, name, phone, town, home_latitude, home_longitude, experience_level, avatar_url')
-    .eq('id', user.id)
-    .single();
+  // Two reads because the contact details live in their own table; one round trip,
+  // since neither depends on the other.
+  const [directory, contact] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, name, town, home_latitude, home_longitude, experience_level, avatar_url')
+      .eq('id', user.id)
+      .single(),
+    // maybeSingle: a member who has never given a phone number has no row at all,
+    // which is not an error.
+    supabase.from('profile_contacts').select('phone').eq('profile_id', user.id).maybeSingle(),
+  ]);
 
-  if (error) throw error;
+  if (directory.error) throw directory.error;
 
-  return { profile: data, email: user.email ?? null };
+  return {
+    profile: { ...directory.data, phone: contact.data?.phone ?? null },
+    email: user.email ?? null,
+  };
 }
 
 export async function updateMyProfile(
@@ -45,8 +61,18 @@ export async function updateMyProfile(
     'name' | 'phone' | 'town' | 'experience_level' | 'home_latitude' | 'home_longitude'
   >
 ) {
-  const { error } = await supabase.from('profiles').update(changes).eq('id', userId);
+  const { phone, ...directory } = changes;
+
+  const { error } = await supabase.from('profiles').update(directory).eq('id', userId);
   if (error) throw error;
+
+  // Upsert rather than update: the row is created the first time a member gives a
+  // number, and clearing the field writes a null rather than deleting the row.
+  const { error: contactError } = await supabase
+    .from('profile_contacts')
+    .upsert({ profile_id: userId, phone }, { onConflict: 'profile_id' });
+
+  if (contactError) throw contactError;
 }
 
 /**

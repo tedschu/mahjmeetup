@@ -17,6 +17,12 @@ export type League = {
   is_public: boolean;
   /** The organizer's cap, or null for none. */
   max_members: number | null;
+  /**
+   * When the organizer put this league away, or null while it is live. An
+   * archived league keeps everything it has — members, seasons, tables, standings
+   * — but is not discoverable, accepts nobody new, and takes no more meetups.
+   */
+  archived_at: string | null;
 };
 
 /**
@@ -37,6 +43,8 @@ export type PublicLeague = {
   is_member: boolean;
   next_meetup: string | null;
   next_location: string | null;
+  /** The meetup's street address, when its venue was picked from the suggestions. */
+  next_location_detail: string | null;
   /** Null for a meetup whose venue was typed rather than picked. */
   next_latitude: number | null;
   next_longitude: number | null;
@@ -88,7 +96,7 @@ export async function fetchMyLeagues(userId: string): Promise<MyLeague[]> {
   const { data, error } = await supabase
     .from('league_members')
     .select(
-      'role, league:leagues (id, name, color, created_by, invite_token, is_public, max_members)'
+      'role, league:leagues (id, name, color, created_by, invite_token, is_public, max_members, archived_at)'
     )
     .eq('profile_id', userId)
     .order('joined_at');
@@ -154,6 +162,80 @@ export async function fetchPublicLeagues(): Promise<PublicLeague[]> {
  */
 export async function joinPublicLeague(leagueId: string) {
   const { error } = await supabase.rpc('join_public_league', { p_league_id: leagueId });
+  if (error) throw error;
+}
+
+/**
+ * Put a league away, or bring it back. Organizers only — the update policy on
+ * `leagues` enforces that, not this.
+ *
+ * Archiving is deliberately the reversible half of "I am done with this league":
+ * it un-lists the league and closes both doors into it (see the migration) while
+ * every season, table and score stays exactly where it was.
+ */
+export async function setLeagueArchived(leagueId: string, archived: boolean) {
+  const { error } = await supabase
+    .from('leagues')
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq('id', leagueId);
+
+  if (error) throw error;
+}
+
+/**
+ * What deleting a league would take with it.
+ *
+ * Read before offering the delete, because the honest confirmation is a count
+ * rather than a warning. `matches` is world-readable and seasons are readable by
+ * members, so this needs no privileged function of its own.
+ */
+export type LeagueFootprint = {
+  seasons: number;
+  /** Tables the draw produced, across every season. */
+  tables: number;
+  /** Of those, the ones with scores recorded — the part that cannot be rebuilt. */
+  played: number;
+};
+
+export async function fetchLeagueFootprint(leagueId: string): Promise<LeagueFootprint> {
+  const [seasons, matches] = await Promise.all([
+    supabase.from('seasons').select('id').eq('league_id', leagueId),
+    // Only drawn tables count here. A match merely tagged with the league has no
+    // session and survives a delete as a pick-up game, so counting it would
+    // overstate the damage.
+    supabase
+      .from('matches')
+      .select('id, status')
+      .eq('league_id', leagueId)
+      .not('session_id', 'is', null),
+  ]);
+
+  if (seasons.error) throw seasons.error;
+  if (matches.error) throw matches.error;
+
+  const drawn = matches.data ?? [];
+
+  return {
+    seasons: (seasons.data ?? []).length,
+    tables: drawn.length,
+    played: drawn.filter((match) => match.status === 'completed').length,
+  };
+}
+
+/**
+ * Erase a league, its seasons, its meetups and the tables they were drawn into.
+ *
+ * Goes through a function rather than deleting the row, and not for permission
+ * reasons: two referential actions on `matches` collide when a league row is
+ * removed, so deleting one that had ever been drawn failed with a foreign key
+ * error. The function fixes the order. See 20260815201500 for the full account.
+ *
+ * It also refuses once any table has been played — the same rule the UI applies,
+ * enforced where it cannot be talked out of. Matches merely tagged with the league
+ * survive as pick-up games.
+ */
+export async function deleteLeague(leagueId: string) {
+  const { error } = await supabase.rpc('delete_league', { p_league_id: leagueId });
   if (error) throw error;
 }
 

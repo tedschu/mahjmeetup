@@ -276,3 +276,31 @@ select
   'Geneva Public Library District',
   'South 7th Street, Geneva, IL, USA'
 from generate_series(1, 6) as g(n);
+
+-- Contact details, so the "reach the host" section on a match sheet and the
+-- organizer block on a league have something to draw. Only two members give a
+-- phone number: it is optional, and the common case is an email address alone.
+insert into public.profile_contacts (profile_id, phone)
+values
+  ('11111111-1111-1111-1111-111111111111', '(630) 555-0142'),
+  ('22222222-2222-2222-2222-222222222222', '(630) 555-0198');
+
+-- An archived league Ted organizes, so that state is visible without having to
+-- create it. Public and capped, which is the case worth seeing: archiving has to
+-- un-list a league from Browse without erasing the setting it had, so unarchiving
+-- puts it back exactly as it was.
+insert into public.leagues (id, name, color, created_by, invite_token, is_public, max_members, archived_at)
+values (
+  'bbbbbbbb-0000-0000-0000-000000000005',
+  'Spring 2026 Ladder',
+  'blue',
+  '11111111-1111-1111-1111-111111111111',
+  'seed-invite-5',
+  true, 8,
+  now() - interval '30 days'
+);
+
+insert into public.league_members (league_id, profile_id, role)
+values
+  ('bbbbbbbb-0000-0000-0000-000000000005', '33333333-3333-3333-3333-333333333333', 'member'),
+  ('bbbbbbbb-0000-0000-0000-000000000005', '44444444-4444-4444-4444-444444444444', 'member');

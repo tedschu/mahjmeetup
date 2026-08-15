@@ -1,8 +1,10 @@
-import { Platform, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { GradientButton } from './button';
 import { ThemedText } from './themed-text';
 
+import { PublicLeagueSheet } from '@/components/public-league-sheet';
 import { CardShadow, LeagueColors, Radius, Spacing, type LeagueColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMiles } from '@/lib/geo';
@@ -30,6 +32,7 @@ export function LeagueCard({
   onJoin: () => void;
 }) {
   const theme = useTheme();
+  const [showDetail, setShowDetail] = useState(false);
   const tint = LeagueColors[league.color as LeagueColor] ?? theme.accent;
   const full = league.seats_left !== null && league.seats_left <= 0;
 
@@ -41,53 +44,64 @@ export function LeagueCard({
         { backgroundColor: theme.background, borderLeftColor: tint },
         full && styles.muted,
       ]}>
-      <View style={styles.topRow}>
-        <View style={styles.titleBlock}>
-          {/* Says what kind of thing this is before the name does, since the
-              surrounding cards are matches. */}
-          <ThemedText type="label" style={{ color: theme.accentAltInk }}>
-            League
+      {/* Opens the same way a match card does, and for the same reason — the card
+          is a summary. The action row stays outside this Pressable so that tapping
+          the card cannot also mean tapping Join; see the note in match-card.tsx. */}
+      <Pressable
+        onPress={() => setShowDetail(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`${league.name}, league with ${league.member_count} members. Open league details.`}
+        style={({ pressed }) => [styles.body, pressed && styles.pressed]}>
+        <View style={styles.topRow}>
+          <View style={styles.titleBlock}>
+            {/* Says what kind of thing this is before the name does, since the
+                surrounding cards are matches. */}
+            <ThemedText type="label" style={{ color: theme.accentAltInk }}>
+              League
+            </ThemedText>
+            <ThemedText type="subtitle" numberOfLines={2}>
+              {league.name}
+            </ThemedText>
+            {typeof distance === 'number' ? (
+              <ThemedText type="small" style={{ color: theme.accentInk }}>
+                {formatMiles(distance)}
+              </ThemedText>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={styles.metaRow}>
+          <ThemedText type="defaultSemiBold" themeColor="textSecondary">
+            {league.member_count} {league.member_count === 1 ? 'member' : 'members'}
           </ThemedText>
-          <ThemedText type="subtitle" numberOfLines={2}>
-            {league.name}
-          </ThemedText>
-          {typeof distance === 'number' ? (
-            <ThemedText type="small" style={{ color: theme.accentInk }}>
-              {formatMiles(distance)}
+          {/* Null seats_left means the organizer set no cap, which is not the same
+              as knowing how many are free — so it says nothing rather than a
+              number it does not have. */}
+          {league.seats_left !== null ? (
+            <ThemedText type="label" style={{ color: full ? theme.textSecondary : theme.accentInk }}>
+              {full
+                ? 'Full'
+                : `${league.seats_left} ${league.seats_left === 1 ? 'seat' : 'seats'} left`}
+            </ThemedText>
+          ) : null}
+          {league.is_member ? (
+            <ThemedText type="label" style={{ color: theme.accentAltInk }}>
+              You&apos;re in
             </ThemedText>
           ) : null}
         </View>
-      </View>
 
-      <View style={styles.metaRow}>
-        <ThemedText type="defaultSemiBold" themeColor="textSecondary">
-          {league.member_count} {league.member_count === 1 ? 'member' : 'members'}
-        </ThemedText>
-        {/* Null seats_left means the organizer set no cap, which is not the same
-            as knowing how many are free — so it says nothing rather than a
-            number it does not have. */}
-        {league.seats_left !== null ? (
-          <ThemedText type="label" style={{ color: full ? theme.textSecondary : theme.accentInk }}>
-            {full ? 'Full' : `${league.seats_left} ${league.seats_left === 1 ? 'seat' : 'seats'} left`}
+        {league.next_meetup ? (
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            Next: {formatWhen(league.next_meetup)}
+            {league.next_location ? ` · ${league.next_location}` : ''}
           </ThemedText>
-        ) : null}
-        {league.is_member ? (
-          <ThemedText type="label" style={{ color: theme.accentAltInk }}>
-            You&apos;re in
+        ) : (
+          <ThemedText type="small" themeColor="textSecondary">
+            No meetups scheduled yet.
           </ThemedText>
-        ) : null}
-      </View>
-
-      {league.next_meetup ? (
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          Next: {formatWhen(league.next_meetup)}
-          {league.next_location ? ` · ${league.next_location}` : ''}
-        </ThemedText>
-      ) : (
-        <ThemedText type="small" themeColor="textSecondary">
-          No meetups scheduled yet.
-        </ThemedText>
-      )}
+        )}
+      </Pressable>
 
       {/* Nothing to press once you are in or once it is full. Joining a league is
           the one action here, and the seats you play are dealt by its draw
@@ -97,6 +111,18 @@ export function LeagueCard({
           <GradientButton label="Join league" onPress={onJoin} busy={busy} />
         </View>
       )}
+
+      <PublicLeagueSheet
+        league={league}
+        distance={distance}
+        visible={showDetail}
+        busy={busy}
+        onClose={() => setShowDetail(false)}
+        onJoin={() => {
+          setShowDetail(false);
+          onJoin();
+        }}
+      />
     </View>
   );
 }
@@ -118,11 +144,18 @@ const styles = StyleSheet.create({
   muted: {
     opacity: 0.62,
   },
+  /** The part that opens the sheet; carries the gap the card itself used to. */
+  body: {
+    gap: Spacing.one,
+  },
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.three,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   titleBlock: {
     flex: 1,

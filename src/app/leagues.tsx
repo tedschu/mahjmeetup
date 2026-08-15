@@ -165,6 +165,33 @@ function NewLeagueForm({
   );
 }
 
+/**
+ * One league in the list. An archived one is dimmed rather than hidden — the
+ * standings are still worth reading — and says so, since "You organize this" on
+ * its own would suggest there is still something to organize.
+ */
+function LeagueRow({ league, onPress }: { league: MyLeague; onPress: () => void }) {
+  const theme = useTheme();
+  const tint = LeagueColors[league.color] ?? theme.accent;
+  const isArchived = league.archived_at !== null;
+
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
+      <ThemedView
+        type="background"
+        style={[styles.leagueCard, { borderLeftColor: tint }, isArchived && styles.muted]}>
+        <ThemedText type="subtitle" numberOfLines={1}>
+          {league.name}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {isArchived ? 'Archived · ' : ''}
+          {league.role === 'organizer' ? 'You organize this' : 'Member'}
+        </ThemedText>
+      </ThemedView>
+    </Pressable>
+  );
+}
+
 export default function LeaguesScreen() {
   const theme = useTheme();
   const [leagues, setLeagues] = useState<MyLeague[]>([]);
@@ -236,6 +263,12 @@ export default function LeaguesScreen() {
 
   const openLeague = leagues.find((league) => league.id === openLeagueId) ?? null;
 
+  // Archived leagues stay reachable — their standings are still worth reading —
+  // but they go below the live ones under a heading, rather than sitting in the
+  // list looking like something you could still turn up to.
+  const live = leagues.filter((league) => league.archived_at === null);
+  const archived = leagues.filter((league) => league.archived_at !== null);
+
   if (openLeague && userId) {
     return (
       <ThemedView type="backgroundElement" style={styles.container}>
@@ -275,26 +308,28 @@ export default function LeaguesScreen() {
 
           {isLoading ? <ActivityIndicator style={styles.centered} /> : null}
 
-          {leagues.map((league) => {
-            const tint = LeagueColors[league.color] ?? theme.accent;
-            return (
-              <Pressable
-                key={league.id}
-                onPress={() => setOpenLeagueId(league.id)}
-                style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedView
-                  type="background"
-                  style={[styles.leagueCard, { borderLeftColor: tint }]}>
-                  <ThemedText type="subtitle" numberOfLines={1}>
-                    {league.name}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {league.role === 'organizer' ? 'You organize this' : 'Member'}
-                  </ThemedText>
-                </ThemedView>
-              </Pressable>
-            );
-          })}
+          {live.map((league) => (
+            <LeagueRow
+              key={league.id}
+              league={league}
+              onPress={() => setOpenLeagueId(league.id)}
+            />
+          ))}
+
+          {archived.length > 0 ? (
+            <>
+              <ThemedText type="label" themeColor="textSecondary" style={styles.groupHeader}>
+                Archived
+              </ThemedText>
+              {archived.map((league) => (
+                <LeagueRow
+                  key={league.id}
+                  league={league}
+                  onPress={() => setOpenLeagueId(league.id)}
+                />
+              ))}
+            </>
+          ) : null}
 
           {isCreating ? (
             <NewLeagueForm
@@ -344,6 +379,13 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     borderLeftWidth: 4,
     boxShadow: CardShadow,
+  },
+  /** The same step back a played or cancelled match card takes. */
+  muted: {
+    opacity: 0.62,
+  },
+  groupHeader: {
+    marginTop: Spacing.three,
   },
   card: {
     padding: Spacing.three,

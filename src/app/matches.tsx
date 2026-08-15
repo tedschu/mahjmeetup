@@ -184,6 +184,9 @@ export default function MatchesScreen() {
               <MatchCard
                 match={item}
                 userId={userId ?? ''}
+                // Tapping the card opens its details, and the host can go
+                // straight from there into the same sheet this row's pencil opens.
+                onEdit={() => setEditingMatchId(item.id)}
                 action={
                   <MatchActions
                     match={item}

@@ -130,6 +130,7 @@ export type Database = {
       }
       leagues: {
         Row: {
+          archived_at: string | null
           color: string
           created_at: string
           created_by: string
@@ -140,6 +141,7 @@ export type Database = {
           name: string
         }
         Insert: {
+          archived_at?: string | null
           color?: string
           created_at?: string
           created_by: string
@@ -150,6 +152,7 @@ export type Database = {
           name: string
         }
         Update: {
+          archived_at?: string | null
           color?: string
           created_at?: string
           created_by?: string
@@ -320,6 +323,43 @@ export type Database = {
           },
         ]
       }
+      profile_contacts: {
+        Row: {
+          phone: string | null
+          profile_id: string
+        }
+        Insert: {
+          phone?: string | null
+          profile_id: string
+        }
+        Update: {
+          phone?: string | null
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_contacts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "leaderboard"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "profile_contacts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "league_standings"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "profile_contacts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -329,7 +369,6 @@ export type Database = {
           home_longitude: number | null
           id: string
           name: string | null
-          phone: string | null
           town: string | null
         }
         Insert: {
@@ -340,7 +379,6 @@ export type Database = {
           home_longitude?: number | null
           id: string
           name?: string | null
-          phone?: string | null
           town?: string | null
         }
         Update: {
@@ -351,7 +389,6 @@ export type Database = {
           home_longitude?: number | null
           id?: string
           name?: string | null
-          phone?: string | null
           town?: string | null
         }
         Relationships: []
@@ -426,6 +463,7 @@ export type Database = {
       }
     }
     Functions: {
+      delete_league: { Args: { p_league_id: string }; Returns: undefined }
       draw_league_session: { Args: { p_session_id: string }; Returns: number }
       enter_match_scores: {
         Args: { p_match_id: string; p_scores: Json }
@@ -435,6 +473,36 @@ export type Database = {
       is_league_organizer: { Args: { p_league: string }; Returns: boolean }
       join_league_with_token: { Args: { p_token: string }; Returns: string }
       join_public_league: { Args: { p_league_id: string }; Returns: string }
+      league_member_contacts: {
+        Args: { p_league_id: string }
+        Returns: {
+          email: string
+          name: string
+        }[]
+      }
+      league_organizer_contact: {
+        Args: { p_league_id: string }
+        Returns: {
+          email: string
+          name: string
+          phone: string
+        }[]
+      }
+      match_host_contact: {
+        Args: { p_match_id: string }
+        Returns: {
+          email: string
+          name: string
+          phone: string
+        }[]
+      }
+      match_player_contacts: {
+        Args: { p_match_id: string }
+        Returns: {
+          email: string
+          name: string
+        }[]
+      }
       match_seat_limit: { Args: never; Returns: number }
       new_invite_token: { Args: never; Returns: string }
       public_leagues: {
@@ -448,6 +516,7 @@ export type Database = {
           name: string
           next_latitude: number
           next_location: string
+          next_location_detail: string
           next_longitude: number
           next_meetup: string
           seats_left: number

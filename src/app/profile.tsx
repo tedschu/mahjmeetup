@@ -169,7 +169,7 @@ export default function ProfileScreen() {
             <View style={styles.header}>
               <ThemedText type="title">Profile</ThemedText>
               <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-                {email ?? 'How the group sees you'}
+                How the group sees you
               </ThemedText>
             </View>
 
@@ -181,6 +181,35 @@ export default function ProfileScreen() {
               hint="Shown on match cards and the leaderboard."
             />
 
+            {/*
+              Shown as a field rather than as the caption under the title, where it
+              read as decoration — which is no way to present the one detail the
+              note below says gets shared.
+
+              Not editable, and not for want of a text input. This is the address
+              you sign in with: it lives on the auth account rather than on the
+              profile, and changing it means `auth.updateUser` plus a confirmation
+              link, which cannot happen behind the same Save button as a name. A
+              field that appeared to save and then reverted would be worse than one
+              that says where the value comes from.
+            */}
+            <View style={styles.field}>
+              <ThemedText type="label" themeColor="textSecondary">
+                Email
+              </ThemedText>
+              <View
+                style={[
+                  styles.input,
+                  styles.readOnly,
+                  { backgroundColor: theme.backgroundElement, borderColor: theme.rule },
+                ]}>
+                <ThemedText numberOfLines={1}>{email ?? '—'}</ThemedText>
+              </View>
+              <ThemedText type="small" themeColor="textSecondary">
+                How you sign in. Ask to have it changed if you need to.
+              </ThemedText>
+            </View>
+
             <Field
               label="Phone"
               value={draft.phone}
@@ -188,6 +217,37 @@ export default function ProfileScreen() {
               placeholder="Optional"
               keyboardType="phone-pad"
             />
+
+            {/* Said before it happens, not discovered afterwards. Hosting a match
+                hands your email to strangers who join it, which is a fair trade for
+                being reachable but not one to make on somebody's behalf silently.
+                Placed under the contact fields, where the question arises. */}
+            <ThemedView
+              type="background"
+              style={[styles.notice, { borderColor: theme.rule }]}>
+              <ThemedText type="label" themeColor="textSecondary">
+                Who can see this
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                When you host a match, everyone who takes a seat can see your email
+                address — and your phone number if you have given one — so they can
+                reach you. The same goes for members of a league you organize.
+              </ThemedText>
+              {/* The other direction, added when hosts got the ability to write to
+                  their players. Worth its own sentence: it is the one case where
+                  somebody else can see your address without you choosing to host
+                  anything. */}
+              <ThemedText type="small" themeColor="textSecondary">
+                It also works the other way. When you join a match or a league, your
+                email address is visible to whoever runs it, so they can send you
+                updates — a change of venue, or a game called off. Other players
+                never see it: group messages are sent blind.
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Nobody else sees either detail. They are never shown in Browse, on
+                the leaderboard, or to people who have not joined.
+              </ThemedText>
+            </ThemedView>
 
             <PlaceAutocompleteInput
               label="Town"
@@ -291,12 +351,28 @@ const styles = StyleSheet.create({
   field: {
     gap: Spacing.one,
   },
+  /** An outlined card rather than a `hint` line: it is two sentences, not a caption. */
+  notice: {
+    padding: Spacing.three,
+    borderRadius: Radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.two,
+  },
   input: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Radius.small,
     borderWidth: StyleSheet.hairlineWidth,
     fontSize: 16,
+  },
+  /**
+   * A value you can read but not type into. On the page ground rather than the card
+   * white the editable fields use, so it looks unavailable before it is tapped —
+   * the same distinction the inputs already draw, in reverse.
+   */
+  readOnly: {
+    justifyContent: 'center',
+    minHeight: 44,
   },
   chips: {
     flexDirection: 'row',
