@@ -6,7 +6,7 @@ import { signInWithGoogle } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { AnimatedIcon } from '@/components/animated-icon';
 import { GradientButton, OutlineButton } from '@/components/button';
-import { CornerRibbon } from '@/components/ribbon';
+import { EdgeRibbon } from '@/components/ribbon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
@@ -58,8 +58,9 @@ export default function LoginScreen() {
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
       {/* Behind everything, and non-interactive: the screen was otherwise a blank
-          field with a mark floating in it. */}
-      <CornerRibbon />
+          field with a mark floating in it. Runs the full height through the middle,
+          so the form sits on the ribbon rather than beside it. */}
+      <EdgeRibbon />
 
       <SafeAreaView style={styles.safeArea}>
         <AnimatedIcon />
@@ -69,17 +70,25 @@ export default function LoginScreen() {
             SEVEN BAM
           </ThemedText>
           {/* Set in the two brand colours the guide uses for it, each deepened to
-              the ink variant so a 14px line actually reads. */}
+              the ink variant so a 14px line actually reads. Broken at the verb
+              rather than mid-phrase, so the colour change lands on a join the
+              sentence already has. */}
           <ThemedText type="smallBold" style={styles.tagline}>
             <ThemedText type="smallBold" style={{ color: theme.accentInk }}>
-              Make connections.{' '}
+              Your next game{' '}
             </ThemedText>
             <ThemedText type="smallBold" style={{ color: theme.accentWarmInk }}>
-              Start something.
+              starts here.
             </ThemedText>
           </ThemedText>
         </View>
 
+        {/* The card is back, now that the ribbon is anchored to the side rather than
+            running up the middle: there is nothing left for a panel to box out, and
+            the form reads better as one surface than as four floating controls.
+
+            The fields go back to the page grey inside it, which is the contrast that
+            works — they only needed their own white while the card was gone. */}
         <ThemedView style={[styles.formCard, { borderColor: theme.rule }]}>
           <TextInput
             style={[

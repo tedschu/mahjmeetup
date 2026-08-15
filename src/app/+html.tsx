@@ -18,7 +18,9 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
         <title>SEVEN BAM</title>
-        <meta name="description" content="Make connections. Start something." />
+        {/* The tagline, kept in step with the one on the login screen — this is the
+            line that shows in a search result or a shared link. */}
+        <meta name="description" content="Your next game starts here." />
 
         {/* Matches the body grounds set in global.css, so the browser's own chrome
             and the overscroll area agree with the page in both schemes. */}

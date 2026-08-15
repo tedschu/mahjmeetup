@@ -190,6 +190,17 @@ export default function BrowseMatchesScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [busyMatchId, setBusyMatchId] = useState<string | null>(null);
   const [isProposing, setIsProposing] = useState(false);
+  /**
+   * The match being edited, opened from its detail sheet.
+   *
+   * Editing used to live only on My Matches, on the reasoning that Browse is for
+   * finding a table rather than running one. That held while a card was a summary
+   * with a Join button: a host looking at their own match in Browse had nothing to
+   * press, which was fine because there was nothing to read either. Now the card
+   * opens the whole match, and being shown every detail of something you host with
+   * no way to change it is just a dead end.
+   */
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -372,6 +383,9 @@ export default function BrowseMatchesScreen() {
                   match={row.match}
                   userId={userId ?? ''}
                   distance={row.distance}
+                  // Passed for every card; the sheet shows the control only to the
+                  // host, and only while the match is still to be played.
+                  onEdit={() => setEditingMatchId(row.match.id)}
                   action={seat}
                   // Undefined rather than an element that renders nothing, so the
                   // sheet knows whether it has a footer to draw at all.
@@ -408,6 +422,22 @@ export default function BrowseMatchesScreen() {
           onClose={() => setIsProposing(false)}
           onSaved={async () => {
             setIsProposing(false);
+            await load();
+          }}
+        />
+
+        {/* Editing, for a host who opened their own match from this screen. Read
+            from the freshly loaded list rather than captured when the button was
+            pressed, so the form shows current seats; keyed on the match so it is
+            rebuilt from that match's details rather than the last one's. */}
+        <MatchSheet
+          key={`edit-${editingMatchId ?? 'none'}`}
+          hostId={userId}
+          match={matches.find((match) => match.id === editingMatchId) ?? null}
+          visible={editingMatchId !== null}
+          onClose={() => setEditingMatchId(null)}
+          onSaved={async () => {
+            setEditingMatchId(null);
             await load();
           }}
         />
