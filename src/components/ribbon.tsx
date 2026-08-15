@@ -40,8 +40,19 @@ const StrokeWidth = 30;
  */
 const Wave = {
   /** Just wider than the band needs at its widest, turns and taper included. */
-  frame: 320,
-  centre: 150,
+  frame: 560,
+  /**
+   * The spine's centre drifts across the frame as it descends, rather than
+   * oscillating about a fixed line.
+   *
+   * This is the difference between a ribbon and a left border. Turns around a fixed
+   * centre stay inside a vertical strip however lively they are, and a vertical strip
+   * down one edge is a border — which is exactly what it looked like. Drifting, it
+   * enters at the top corner and travels inward, finishing near the middle of the
+   * page under the content.
+   */
+  startCentre: 60,
+  endCentre: 480,
   /**
    * How far the control points reach along the segment, as a fraction of its height.
    * Above 0.5 the turns round out; at 0.5 they are noticeably tighter.
@@ -71,13 +82,20 @@ const Wave = {
  * Sides alternate, so the ribbon crosses back and forth as it descends.
  */
 function turnPoints() {
-  const { centre, segment, turns, swings, widths } = Wave;
+  const { startCentre, endCentre, segment, turns, swings, widths } = Wave;
 
-  return Array.from({ length: turns + 1 }, (_, index) => ({
-    x: centre + (index % 2 === 0 ? swings[index] : -swings[index]),
-    y: segment * index,
-    half: widths[index] / 2,
-  }));
+  return Array.from({ length: turns + 1 }, (_, index) => {
+    const centre = startCentre + ((endCentre - startCentre) * index) / turns;
+
+    return {
+      // Even turns swing left, so the first one sits outside the frame and is
+      // clipped — which is what makes the ribbon enter from off the corner rather
+      // than beginning at a visible edge.
+      x: centre + (index % 2 === 0 ? -swings[index] : swings[index]),
+      y: segment * index,
+      half: widths[index] / 2,
+    };
+  });
 }
 
 /**
@@ -138,9 +156,24 @@ function gradientStops() {
   ).join('');
 }
 
-function svgSource(body: string, viewBox: string, gradient = 'x1="0" y1="0" x2="0.9" y2="1"') {
+function svgSource(
+  body: string,
+  viewBox: string,
+  gradient = 'x1="0" y1="0" x2="0.9" y2="1"',
+  /**
+   * `none` lets the artwork stretch to whatever box it is given instead of keeping
+   * its proportions.
+   *
+   * Safe here only because the ribbon is a filled outline: a fill scales on both
+   * axes without artefacts, so a stretched ribbon is still a ribbon. The same trick
+   * on a stroked path thins the line on one axis and looks broken — which is why the
+   * corner fragment above keeps its aspect.
+   */
+  preserveAspectRatio = 'xMidYMid meet'
+) {
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" fill="none">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" ` +
+    `preserveAspectRatio="${preserveAspectRatio}" fill="none">` +
     `<defs><linearGradient id="r" ${gradient}>${gradientStops()}</linearGradient>` +
     `</defs>${body}</svg>`;
 
@@ -168,11 +201,12 @@ function waveSource(opacity: number) {
      *
      * Purely vertical, with no horizontal component. A diagonal vector looks more
      * like the printed gradient but maps colour across the width as well as the
-     * height, and this ribbon is anchored half off the edge: the teal end fell in
-     * the part that is cropped away, so the whole thing rendered coral-to-gold with
-     * no green in it at all.
+     * height, and part of this ribbon is always outside the frame: the teal end fell
+     * in the clipped part, so the whole thing rendered coral-to-gold with no green
+     * in it at all.
      */
-    'x1="0" y1="1" x2="0" y2="0"'
+    'x1="0" y1="1" x2="0" y2="0"',
+    'none'
   );
 }
 
@@ -223,38 +257,36 @@ export function Ribbon({
  */
 export function EdgeRibbon({
   opacity = 0.85,
-  width = 360,
   /**
-   * How far past the edge the ribbon sits. Negative pulls it off-screen, which is
-   * what makes the turns run out of frame instead of stopping inside it.
+   * How far across the page the ribbon's travel reaches, as the width of the box it
+   * is stretched into. The sweep ends near the far edge of that box, so this is
+   * effectively where the ribbon finishes: at 62% it lands just short of centre,
+   * under the content rather than beside it.
    */
-  bleed = -120,
+  reach = '62%',
 }: {
   opacity?: number;
-  width?: number;
-  bleed?: number;
+  reach?: `${number}%`;
 }) {
   return (
     <Image
       source={waveSource(opacity)}
-      style={[styles.edge, { width, left: bleed }]}
+      style={[styles.edge, { width: reach }]}
       accessible={false}
       pointerEvents="none"
       /*
-       * `contain`, so the full wave is fitted to the height — every turn shows and
-       * the line reads as one continuous travel down the page.
+       * Stretched to the box rather than fitted inside it, which is what guarantees
+       * the ribbon starts at the very top and finishes at the very bottom whatever
+       * shape the window is. The horizontal squash on a narrow screen only makes the
+       * sweep steeper, which is the right answer there anyway.
        *
-       * `cover` was the first attempt and was wrong: it scales to the *larger* of
-       * the two ratios, which on any normal window is the width, so the wave was
-       * blown up past 1.5× and better than half its height cropped away. What
-       * remained was three enormous slabs with hard edges. Stretching with `fill`
-       * fails differently again, thinning the stroke on one axis only.
+       * `contain` was the previous attempt: it fits by the smaller ratio, so on a
+       * narrow window the width bound and the ribbon stopped short of the bottom.
+       * `cover` fails the other way, scaling past 1.5× and cropping half the height.
+       * Both are the wrong tool because both preserve an aspect ratio that nothing
+       * here needs — see the note on `preserveAspectRatio` in svgSource.
        */
-      contentFit="contain"
-      // Pinned to the left of its box rather than centred in it, so `bleed` means
-      // what it says. Without this, `contain` letterboxes the wave and the overhang
-      // depends on the window's proportions.
-      contentPosition="left"
+      contentFit="fill"
     />
   );
 }
@@ -264,5 +296,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
+    // Flush with the left edge; the ribbon's own first turn sits outside the frame,
+    // so the bleed comes from the artwork rather than from negative positioning.
+    left: 0,
   },
 });
