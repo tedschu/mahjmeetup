@@ -16,6 +16,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { coordinatesOf, type Coordinates } from '@/lib/geo';
+import { fetchPlaceLocation } from '@/lib/places';
 import {
   EXPERIENCE_LEVELS,
   fetchMyProfile,
@@ -82,6 +84,12 @@ export default function ProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  /**
+   * The town's coordinates, kept beside the draft rather than in it because they
+   * are not typed — they arrive from a Places lookup after a suggestion is
+   * picked, and are dropped whenever the town is edited by hand.
+   */
+  const [home, setHome] = useState<Coordinates | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -94,6 +102,10 @@ export default function ProfileScreen() {
         town: profile.town ?? '',
         experience_level: profile.experience_level ?? '',
       });
+      setHome(coordinatesOf({
+        latitude: profile.home_latitude,
+        longitude: profile.home_longitude,
+      }));
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your profile.');
@@ -126,6 +138,8 @@ export default function ProfileScreen() {
         phone: draft.phone.trim() || null,
         town: draft.town.trim() || null,
         experience_level: draft.experience_level || null,
+        home_latitude: home?.latitude ?? null,
+        home_longitude: home?.longitude ?? null,
       });
       setStatus('Profile saved.');
       setError(null);
@@ -178,8 +192,21 @@ export default function ProfileScreen() {
             <PlaceAutocompleteInput
               label="Town"
               value={draft.town}
-              onChangeText={set('town')}
+              onChangeText={(next) => {
+                setDraft((current) => ({ ...current, town: next }));
+                // A town typed by hand has no position, and keeping the previous
+                // one would filter Browse around the wrong place.
+                setHome(null);
+              }}
+              onSelectPlace={(suggestion) => {
+                setDraft((current) => ({ ...current, town: suggestion.mainText }));
+                setHome(null);
+                // Not awaited: the field stays responsive, and a profile without
+                // coordinates is perfectly valid — it just cannot sort by distance.
+                fetchPlaceLocation(suggestion.placeId).then(setHome);
+              }}
               placeholder="Where you play from"
+              hint="Pick a suggestion, and Browse can show you the closest tables first."
               kind="city"
             />
 

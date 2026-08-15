@@ -51,19 +51,40 @@ update public.profiles set town = 'Cambridge', experience_level = 'beginner'
 update public.profiles set town = 'Somerville', experience_level = 'intermediate'
   where id = '44444444-4444-4444-4444-444444444444';
 
+-- Ted's town gets coordinates so Browse's distance filter has an origin. These
+-- are the centre of Brookline, MA, matching the town already set above — the app
+-- fills them from a Places city result when a member picks a suggestion.
+update public.profiles set home_latitude = 42.3318, home_longitude = -71.1212
+  where id = '11111111-1111-1111-1111-111111111111';
+
 -- Matches: one open that Ted hosts, one Ted joined but does not host, and one
 -- completed with scores, so My Matches has both sections populated.
-insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, status)
+--
+-- Coordinates are set on most venues and deliberately left off one, because
+-- "no coordinates" is a case Browse has to handle rather than a gap in the seed:
+-- every match proposed before the distance filter existed has none, and so does
+-- any venue typed by hand. Distances from Brookline are roughly:
+--   Ted's House            0 mi
+--   Community Center       1 mi
+--   Brookline Senior Ctr   1 mi
+--   Newton Library         5 mi
+--   Dusable              850 mi  (Chicago — well outside every radius option)
+insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, status,
+                            latitude, longitude)
 values
   ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-   now() + interval '3 days', 'Ted''s House', 'Parking on the street.', true, 'open'),
+   now() + interval '3 days', 'Ted''s House', 'Parking on the street.', true, 'open',
+   42.3318, -71.1212),
   ('aaaaaaaa-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222',
-   now() + interval '6 days', 'Community Center', null, false, 'open'),
+   now() + interval '6 days', 'Community Center', null, false, 'open',
+   42.3370, -71.1100),
   -- Starts open so players can be seated; closed out below, the way a real
   -- match progresses. enforce_match_capacity refuses to seat anyone into a
   -- match that is already completed.
+  -- Left without coordinates on purpose; see above.
   ('aaaaaaaa-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
-   now() - interval '8 days', 'Mei''s Place', 'Great night.', true, 'open');
+   now() - interval '8 days', 'Mei''s Place', 'Great night.', true, 'open',
+   null, null);
 
 -- Hosts are seated automatically by seat_host_after_match_insert, so only the
 -- guests are inserted here.
@@ -94,12 +115,20 @@ update public.matches set status = 'completed'
 
 -- A fourth match with an empty seat that Ted is NOT in, so Browse has something
 -- joinable, plus one that is already full.
-insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, status)
+insert into public.matches (id, host_id, date_time, location, notes, supplies_provided, status,
+                            latitude, longitude)
 values
   ('aaaaaaaa-0000-0000-0000-000000000004', '33333333-3333-3333-3333-333333333333',
-   now() + interval '9 days', 'Newton Library', 'Beginners welcome.', true, 'open'),
+   now() + interval '9 days', 'Newton Library', 'Beginners welcome.', true, 'open',
+   42.3370, -71.2092),
   ('aaaaaaaa-0000-0000-0000-000000000005', '22222222-2222-2222-2222-222222222222',
-   now() + interval '12 days', 'Brookline Senior Center', null, false, 'open');
+   now() + interval '12 days', 'Brookline Senior Center', null, false, 'open',
+   42.3320, -71.1180),
+  -- Far enough away that every radius option excludes it, so the filter can be
+  -- seen working rather than assumed to work.
+  ('aaaaaaaa-0000-0000-0000-000000000008', '33333333-3333-3333-3333-333333333333',
+   now() + interval '4 days', 'Dusable Museum', 'A long way from Brookline.', false, 'open',
+   41.7910, -87.6070);
 
 insert into public.match_players (match_id, player_id)
 values

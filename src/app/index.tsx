@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrowseFilterBar, defaultFilters, type BrowseFilters } from '@/components/browse-filters';
 import { GradientButton } from '@/components/button';
 import { MatchCard } from '@/components/match-card';
 import { MatchSheet } from '@/components/match-sheet';
@@ -12,6 +13,14 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
+  coordinatesOf,
+  DefaultDistance,
+  milesBetween,
+  timeOfDayOf,
+  type Coordinates,
+  type DayIndex,
+} from '@/lib/geo';
+import {
   fetchUpcomingMatches,
   isSeated,
   joinMatch,
@@ -19,59 +28,42 @@ import {
   SEATS_PER_MATCH,
   type Match,
 } from '@/lib/matches';
+import { fetchMyHome } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 
-// Scramble and League are gone: this screen only lists pick-up games now, so
-// every row was a Scramble and the League filter always came back empty.
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'open', label: 'Open' },
-  { key: 'supplies', label: 'Tiles provided' },
-] as const;
-
-type FilterKey = (typeof FILTERS)[number]['key'];
-
-function matchesFilter(match: Match, filter: FilterKey) {
-  switch (filter) {
-    case 'open':
-      return match.status === 'open';
-    case 'supplies':
-      return Boolean(match.supplies_provided);
-    default:
-      return true;
-  }
+/**
+ * How far a match is from the member's town, or null when either end has no
+ * coordinates.
+ */
+function distanceFor(match: Match, home: Coordinates | null) {
+  if (!home) return null;
+  const where = coordinatesOf(match);
+  return where ? milesBetween(home, where) : null;
 }
 
-function FilterBar({ value, onChange }: { value: FilterKey; onChange: (next: FilterKey) => void }) {
-  const theme = useTheme();
+/**
+ * Whether a match survives the filters.
+ *
+ * The distance rule has a deliberate hole in it: a match with no coordinates is
+ * always kept. Every match proposed before coordinates existed has none, and so
+ * does any venue typed by hand rather than picked from the suggestions — treating
+ * those as "too far" would hide real games from everyone, which is exactly the
+ * failure this screen already had.
+ */
+function keep(match: Match, filters: BrowseFilters, home: Coordinates | null) {
+  if (filters.openOnly && match.status !== 'open') return false;
+  if (filters.suppliesOnly && !match.supplies_provided) return false;
 
-  return (
-    <View style={styles.filterBar}>
-      {FILTERS.map((filter) => {
-        const selected = filter.key === value;
-        return (
-          <Pressable
-            key={filter.key}
-            onPress={() => onChange(filter.key)}
-            style={({ pressed }) => [pressed && styles.pressed]}>
-            <ThemedView
-              type={selected ? 'backgroundSelected' : 'background'}
-              style={[
-                styles.filterChip,
-                // The chosen chip is outlined in teal as well as filled with the
-                // highlight, so it still reads as chosen in dark mode where the
-                // highlight is a muted warm brown rather than a pale yellow.
-                { borderColor: selected ? theme.accent : theme.rule },
-              ]}>
-              <ThemedText type="label" themeColor={selected ? 'text' : 'textSecondary'}>
-                {filter.label}
-              </ThemedText>
-            </ThemedView>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
+  const at = new Date(match.date_time);
+  if (filters.days.length > 0 && !filters.days.includes(at.getDay() as DayIndex)) return false;
+  if (filters.times.length > 0 && !filters.times.includes(timeOfDayOf(at))) return false;
+
+  if (filters.distance !== null) {
+    const miles = distanceFor(match, home);
+    if (miles !== null && miles > filters.distance) return false;
+  }
+
+  return true;
 }
 
 /**
@@ -116,9 +108,8 @@ function SeatButton({
 
   return (
     <Pressable onPress={onJoin} style={({ pressed }) => pressed && styles.pressed}>
-      <View style={[styles.seatButton, { backgroundColor: theme.accent }]}>
-        {/* Dark type on the teal, not white: white on `#2fb7a6` is 2.5:1. */}
-        <ThemedText type="label" style={{ color: theme.onAccent }}>
+      <View style={[styles.seatButton, { backgroundColor: theme.accentButton }]}>
+        <ThemedText type="label" style={{ color: theme.onAccentButton }}>
           Join
         </ThemedText>
       </View>
@@ -130,7 +121,13 @@ export default function BrowseMatchesScreen() {
   const theme = useTheme();
   const [matches, setMatches] = useState<Match[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterKey>('all');
+  const [filters, setFilters] = useState<BrowseFilters>(() => defaultFilters(DefaultDistance));
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  /**
+   * Read once per load rather than passed in: Browse is the only screen that
+   * needs it, and a member can change their town on Profile mid-session.
+   */
+  const [home, setHome] = useState<Coordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -150,6 +147,8 @@ export default function BrowseMatchesScreen() {
 
       setUserId(user.id);
       setMatches(await fetchUpcomingMatches());
+      // Never throws — a failed lookup just means no distance filtering.
+      setHome(await fetchMyHome(user.id));
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load matches.');
@@ -196,8 +195,13 @@ export default function BrowseMatchesScreen() {
     [load, userId]
   );
 
-  const visible = matches.filter((match) => matchesFilter(match, filter));
-  const openCount = matches.filter((match) => match.status === 'open').length;
+  const visible = matches.filter((match) => keep(match, filters, home));
+  // Counted over what is on screen, not over everything loaded. Counting the
+  // whole list put "4 tables open" above a filtered list of one.
+  const openCount = visible.filter((match) => match.status === 'open').length;
+  // Distinguishes "nothing on at all" from "your filters hid everything", which
+  // want different words and different fixes.
+  const hiddenByFilters = matches.length - visible.length;
 
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
@@ -224,7 +228,13 @@ export default function BrowseMatchesScreen() {
           </View>
         </View>
 
-        <FilterBar value={filter} onChange={setFilter} />
+        <BrowseFilterBar
+          filters={filters}
+          onChange={setFilters}
+          expanded={filtersExpanded}
+          onToggleExpanded={() => setFiltersExpanded((open) => !open)}
+          hasHome={home !== null}
+        />
 
         {error ? (
           <ThemedText type="small" style={[styles.errorBanner, { color: theme.danger }]}>
@@ -242,6 +252,7 @@ export default function BrowseMatchesScreen() {
               <MatchCard
                 match={item}
                 userId={userId ?? ''}
+                distance={distanceFor(item, home)}
                 action={
                   <SeatButton
                     match={item}
@@ -261,9 +272,11 @@ export default function BrowseMatchesScreen() {
                     of text in the middle of a blank screen. */}
                 <Ribbon width={120} height={160} opacity={0.5} />
                 <ThemedText style={styles.centered} themeColor="textSecondary">
-                  {filter === 'all'
-                    ? 'No upcoming matches. Propose one to get a table going.'
-                    : 'No matches match this filter.'}
+                  {hiddenByFilters > 0
+                    ? `No matches fit these filters. ${hiddenByFilters} ${
+                        hiddenByFilters === 1 ? 'match is' : 'matches are'
+                      } hidden — try a wider distance.`
+                    : 'No upcoming matches. Propose one to get a table going.'}
                 </ThemedText>
               </View>
             }

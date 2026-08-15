@@ -55,3 +55,36 @@ export async function searchPlaces(input: string, kind: PlaceKind): Promise<Plac
 
   return data?.suggestions ?? [];
 }
+
+/**
+ * Where a picked suggestion actually is.
+ *
+ * A second call, because Places autocomplete returns no coordinates — only an
+ * id. Made once when someone picks a place, not per keystroke.
+ *
+ * Returns null rather than throwing for every failure mode, including a place
+ * Google has no position for. Coordinates only power the distance filter on
+ * Browse, and a match with none is still shown; losing them must never block
+ * someone from proposing a game.
+ */
+export async function fetchPlaceLocation(
+  placeId: string
+): Promise<{ latitude: number; longitude: number } | null> {
+  if (missingKey || !placeId) return null;
+
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      location: { latitude: number; longitude: number } | null;
+    }>('places-autocomplete', { body: { placeId } });
+
+    if (error) {
+      const status = (error as { context?: { status?: number } }).context?.status;
+      if (status === 501) missingKey = true;
+      return null;
+    }
+
+    return data?.location ?? null;
+  } catch {
+    return null;
+  }
+}

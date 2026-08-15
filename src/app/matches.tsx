@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AllKinds, keepKind, MatchKindChips, type MatchKinds } from '@/components/browse-filters';
 import { QuietButton } from '@/components/button';
 import { MatchCard } from '@/components/match-card';
 import { MatchSheet } from '@/components/match-sheet';
@@ -83,6 +84,7 @@ export default function MatchesScreen() {
   const [scoringMatchId, setScoringMatchId] = useState<string | null>(null);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [calendarSent, setCalendarSent] = useState<Set<string>>(new Set());
+  const [kinds, setKinds] = useState<MatchKinds>(AllKinds);
 
   const load = useCallback(async () => {
     try {
@@ -136,8 +138,9 @@ export default function MatchesScreen() {
   }, [load]);
 
   // Soonest first for upcoming; most recent first for past.
-  const upcoming = matches.filter((m) => m.status === 'open' || m.status === 'full');
-  const past = matches
+  const ofChosenKind = matches.filter((m) => keepKind(m.league_id, kinds));
+  const upcoming = ofChosenKind.filter((m) => m.status === 'open' || m.status === 'full');
+  const past = ofChosenKind
     .filter((m) => m.status === 'completed' || m.status === 'canceled')
     .reverse();
 
@@ -163,6 +166,13 @@ export default function MatchesScreen() {
             Upcoming and past games
           </ThemedText>
         </View>
+
+        {/* Only worth offering once there is something of each kind to tell apart. */}
+        {matches.some((m) => m.league_id === null) && matches.some((m) => m.league_id !== null) ? (
+          <View style={styles.kinds}>
+            <MatchKindChips kinds={kinds} onChange={setKinds} />
+          </View>
+        ) : null}
 
         {isLoading ? (
           <ActivityIndicator style={styles.spinner} />
@@ -259,6 +269,10 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginTop: Spacing.two,
+  },
+  kinds: {
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.three,
   },
   actions: {
     flexDirection: 'row',

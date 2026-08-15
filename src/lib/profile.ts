@@ -9,6 +9,12 @@ export type Profile = {
   name: string | null;
   phone: string | null;
   town: string | null;
+  /**
+   * The centre of `town`, from a Places city result — not a device position and
+   * not an address. Browse measures distance from here.
+   */
+  home_latitude: number | null;
+  home_longitude: number | null;
   avatar_url: string | null;
   experience_level: string | null;
 };
@@ -23,7 +29,7 @@ export async function fetchMyProfile(): Promise<{ profile: Profile; email: strin
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, phone, town, experience_level, avatar_url')
+    .select('id, name, phone, town, home_latitude, home_longitude, experience_level, avatar_url')
     .eq('id', user.id)
     .single();
 
@@ -34,10 +40,35 @@ export async function fetchMyProfile(): Promise<{ profile: Profile; email: strin
 
 export async function updateMyProfile(
   userId: string,
-  changes: Pick<Profile, 'name' | 'phone' | 'town' | 'experience_level'>
+  changes: Pick<
+    Profile,
+    'name' | 'phone' | 'town' | 'experience_level' | 'home_latitude' | 'home_longitude'
+  >
 ) {
   const { error } = await supabase.from('profiles').update(changes).eq('id', userId);
   if (error) throw error;
+}
+
+/**
+ * Just the signed-in member's home coordinates, for Browse's distance filter.
+ *
+ * Separate from `fetchMyProfile` because Browse needs only this, and returns null
+ * on any failure — a profile lookup that fails should cost the distance filter,
+ * not the whole list of matches.
+ */
+export async function fetchMyHome(
+  userId: string
+): Promise<{ latitude: number; longitude: number } | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('home_latitude, home_longitude')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  if (typeof data.home_latitude !== 'number' || typeof data.home_longitude !== 'number') return null;
+
+  return { latitude: data.home_latitude, longitude: data.home_longitude };
 }
 
 export async function signOut() {

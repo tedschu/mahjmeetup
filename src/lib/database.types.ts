@@ -227,9 +227,11 @@ export type Database = {
           date_time: string
           host_id: string
           id: string
+          latitude: number | null
           league_id: string | null
           location: string
           location_detail: string | null
+          longitude: number | null
           notes: string | null
           session_id: string | null
           status: string | null
@@ -241,9 +243,11 @@ export type Database = {
           date_time: string
           host_id: string
           id?: string
+          latitude?: number | null
           league_id?: string | null
           location: string
           location_detail?: string | null
+          longitude?: number | null
           notes?: string | null
           session_id?: string | null
           status?: string | null
@@ -255,9 +259,11 @@ export type Database = {
           date_time?: string
           host_id?: string
           id?: string
+          latitude?: number | null
           league_id?: string | null
           location?: string
           location_detail?: string | null
+          longitude?: number | null
           notes?: string | null
           session_id?: string | null
           status?: string | null
@@ -307,6 +313,8 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           experience_level: string | null
+          home_latitude: number | null
+          home_longitude: number | null
           id: string
           name: string | null
           phone: string | null
@@ -316,6 +324,8 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           experience_level?: string | null
+          home_latitude?: number | null
+          home_longitude?: number | null
           id: string
           name?: string | null
           phone?: string | null
@@ -325,6 +335,8 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           experience_level?: string | null
+          home_latitude?: number | null
+          home_longitude?: number | null
           id?: string
           name?: string | null
           phone?: string | null

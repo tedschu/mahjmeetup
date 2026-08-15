@@ -15,8 +15,9 @@ import {
 import { PlaceAutocompleteInput } from '@/components/place-autocomplete-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { LeagueColors, MaxContentWidth, OnAccent, Radius, Spacing } from '@/constants/theme';
+import { LeagueColors, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { coordinatesOf, type Coordinates } from '@/lib/geo';
 import { fetchMyLeagues, type MyLeague } from '@/lib/leagues';
 import {
   cancelMatch,
@@ -28,6 +29,7 @@ import {
   updateMatch,
   type Match,
 } from '@/lib/matches';
+import { fetchPlaceLocation } from '@/lib/places';
 
 const DefaultTime = '7:00 pm';
 
@@ -84,6 +86,14 @@ export function MatchSheet({
   const [time, setTime] = useState(startedAt ? formatTimeOfDay(startedAt) : DefaultTime);
   const [location, setLocation] = useState(match?.location ?? '');
   const [locationDetail, setLocationDetail] = useState(match?.location_detail ?? null);
+  /**
+   * Resolved in the background when a suggestion is picked, so saving never waits
+   * on a Places lookup. Cleared the moment the venue is edited by hand, because
+   * coordinates for the previous venue would put the match in the wrong town.
+   */
+  const [coordinates, setCoordinates] = useState<Coordinates | null>(
+    match ? coordinatesOf(match) : null
+  );
   const [notes, setNotes] = useState(match?.notes ?? '');
   const [supplies, setSupplies] = useState(match?.supplies_provided ?? false);
   const [leagueId, setLeagueId] = useState<string | null>(match?.league_id ?? null);
@@ -131,6 +141,8 @@ export function MatchSheet({
       date_time: at,
       location: location.trim(),
       location_detail: locationDetail?.trim() || null,
+      latitude: coordinates?.latitude ?? null,
+      longitude: coordinates?.longitude ?? null,
       notes: notes.trim() || null,
       supplies_provided: supplies,
       league_id: leagueId,
@@ -225,13 +237,18 @@ export function MatchSheet({
               value={location}
               onChangeText={(next) => {
                 setLocation(next);
-                // Typing over a picked venue makes its address stale, and a wrong
-                // address is worse than none.
+                // Typing over a picked venue makes both its address and its
+                // position stale, and either one wrong is worse than none.
                 setLocationDetail(null);
+                setCoordinates(null);
               }}
               onSelectPlace={(suggestion) => {
                 setLocation(suggestion.mainText);
                 setLocationDetail(suggestion.secondaryText);
+                setCoordinates(null);
+                // Not awaited: the field should stay responsive, and the match is
+                // perfectly valid without a position.
+                fetchPlaceLocation(suggestion.placeId).then(setCoordinates);
               }}
               placeholder="Where you are playing"
               hint="Pick a suggestion, or type anything — a living room is a venue too."
@@ -333,11 +350,11 @@ export function MatchSheet({
                 <View
                   style={[
                     styles.button,
-                    { backgroundColor: theme.accent },
+                    { backgroundColor: theme.accentButton },
                     !canSave && styles.disabled,
                   ]}>
                   {isSaving ? (
-                    <ActivityIndicator color={OnAccent} />
+                    <ActivityIndicator color="#ffffff" />
                   ) : (
                     <ThemedText type="smallBold" style={styles.postLabel}>
                       {isEditing ? 'Save changes' : 'Post match'}
@@ -498,7 +515,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   postLabel: {
-    color: OnAccent,
+    // White on the deep teal fill: 5.4:1, where the near-black it replaced was
+    // correct only while the fill was the pale `accent`.
+    color: '#ffffff',
   },
   pressed: {
     opacity: 0.7,

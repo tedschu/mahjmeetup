@@ -132,8 +132,8 @@ export function OutlineButton({
  * Tones, quietest first:
  * - `default` — the page ground, secondary ink. Most of them.
  * - `done` — the highlight, for a state already reached: added to a calendar.
- * - `primary` — a teal fill for the one action worth the eye. Its icon is drawn
- *   in `onAccent`, because a white stroke on `#2fb7a6` is 2.5:1.
+ * - `primary` — a solid teal fill for the one action worth the eye, in the deeper
+ *   `accentButton` so its stroke can be white and still read.
  * - `danger` — destructive, and never filled: a filled red button invites the
  *   press it is warning about.
  */
@@ -155,13 +155,13 @@ export function QuietButton({
 
   const fill =
     tone === 'primary'
-      ? theme.accent
+      ? theme.accentButton
       : tone === 'done'
         ? theme.backgroundSelected
         : theme.backgroundElement;
   const color =
     tone === 'primary'
-      ? theme.onAccent
+      ? theme.onAccentButton
       : tone === 'done'
         ? theme.accentWarmInk
         : tone === 'danger'

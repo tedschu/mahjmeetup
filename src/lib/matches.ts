@@ -5,7 +5,7 @@ export const SEATS_PER_MATCH = 4;
 
 const MATCH_SELECT = `
   id, date_time, location, location_detail, notes, supplies_provided, status, host_id,
-  league_id, session_id, table_number,
+  latitude, longitude, league_id, session_id, table_number,
   league:leagues (id, name, color),
   host:profiles!matches_host_id_fkey (id, name),
   players:match_players (player_id, score, profile:profiles (id, name, avatar_url))
@@ -18,6 +18,14 @@ export type Match = {
   location: string;
   /** Street address, when the venue came from the place lookup. */
   location_detail: string | null;
+  /**
+   * Where the venue is, when it came from the place lookup and Google had a
+   * position for it. Null for anything typed by hand and for every match
+   * proposed before the distance filter existed — so Browse treats null as
+   * "always show", not as "too far".
+   */
+  latitude: number | null;
+  longitude: number | null;
   notes: string | null;
   supplies_provided: boolean | null;
   status: string | null;
@@ -143,6 +151,12 @@ export type NewMatch = {
   date_time: string;
   location: string;
   location_detail: string | null;
+  /**
+   * Written together or not at all — the database enforces the pair. Null when
+   * the venue was typed rather than picked, or when the lookup came back empty.
+   */
+  latitude: number | null;
+  longitude: number | null;
   notes: string | null;
   supplies_provided: boolean;
   league_id: string | null;

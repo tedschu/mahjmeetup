@@ -63,6 +63,13 @@ export function LeagueDetail({
   onChanged: () => void;
 }) {
   const theme = useTheme();
+  /**
+   * The league's own colour. A fill only — bars, filled buttons, a chosen chip's
+   * border. Never type: four of the six league colours are pastels sitting between
+   * 1.4:1 and 2.5:1 on white, which had "ORGANIZER" and "+ NEW SEASON" rendering
+   * as pale yellow on white. Labels use `accentInk`; the league's identity is
+   * carried by the shapes around them.
+   */
   const tint = LeagueColors[league.color] ?? theme.accent;
   const isOrganizer = league.role === 'organizer';
 
@@ -287,7 +294,7 @@ export function LeagueDetail({
               {member.profile_id === userId ? ' (you)' : ''}
             </ThemedText>
             {member.role === 'organizer' ? (
-              <ThemedText type="label" style={{ color: tint }}>
+              <ThemedText type="label" style={{ color: theme.accentInk }}>
                 Organizer
               </ThemedText>
             ) : null}
@@ -304,7 +311,7 @@ export function LeagueDetail({
           </ThemedText>
           {isOrganizer ? (
             <Pressable onPress={addSeason} style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedText type="label" style={{ color: tint }}>
+              <ThemedText type="label" style={{ color: theme.accentInk }}>
                 {busy === 'season' ? 'Adding…' : '+ New season'}
               </ThemedText>
             </Pressable>
@@ -350,7 +357,7 @@ export function LeagueDetail({
               <Pressable
                 onPress={() => setIsAddingSession((current) => !current)}
                 style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedText type="label" style={{ color: tint }}>
+                <ThemedText type="label" style={{ color: theme.accentInk }}>
                   {isAddingSession ? 'Cancel' : '+ Add meetup'}
                 </ThemedText>
               </Pressable>

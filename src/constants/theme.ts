@@ -9,10 +9,12 @@
  *    against the 4.5:1 that small text needs. So each accent comes in two parts:
  *    a `*Fill` used for bars, dots, chips and icon strokes, and a `*Ink` deep
  *    enough to set type in. Never set text in a `*Fill`.
- * 2. For the same reason, text and icons sitting *on* a filled brand colour are
- *    dark, not white — white on the gradient's yellow midpoint is illegible.
- *    That is what `onAccent` is for, and it is dark in both schemes because the
- *    fills it sits on are light in both.
+ * 2. For the same reason, text and icons sitting *on* one of those pale fills are
+ *    dark, not white — white on the gradient's yellow midpoint is illegible. That
+ *    is what `onAccent` is for, and it is dark in both schemes because the fills
+ *    it sits on are light in both. The exception is a solid action button, which
+ *    uses the deeper `accentButton` precisely so its label can be white: dark type
+ *    on a pale teal measures well but reads muddy at label sizes.
  */
 
 import '@/global.css';
@@ -73,6 +75,16 @@ export const Colors = {
     /** A deepened coral, so failures read as part of the palette. 4.9:1. */
     danger: '#c4453a',
     onAccent: OnAccent,
+    /**
+     * A solid teal button, and the type on it.
+     *
+     * Deeper than `accent` on purpose. The pale teal takes dark type at 7.5:1 and
+     * white at only 2.5:1, so a white label needs a darker ground — and a white
+     * label is what a filled action button should have. At this depth white sits
+     * at 5.4:1, better than either option on the pale fill.
+     */
+    accentButton: '#17786c',
+    onAccentButton: '#ffffff',
   },
   dark: {
     text: '#f2f3f5',
@@ -97,6 +109,14 @@ export const Colors = {
     danger: '#ff8a7e',
     /** Still dark: the fills it sits on are light in this scheme too. */
     onAccent: OnAccent,
+    /**
+     * Inverted from the light scheme, and it has to be: on a dark ground the
+     * readable teal is the *light* one, and a light button takes dark type. Using
+     * light-mode's deep teal here would be a near-black button on a near-black
+     * page.
+     */
+    accentButton: '#4fd1be',
+    onAccentButton: OnAccent,
   },
 } as const;
 

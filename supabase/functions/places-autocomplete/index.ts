@@ -9,6 +9,17 @@ import '@supabase/functions-js/edge-runtime.d.ts';
 import { withSupabase } from '@supabase/server';
 
 const AutocompleteUrl = 'https://places.googleapis.com/v1/places:autocomplete';
+const DetailsUrl = 'https://places.googleapis.com/v1/places';
+
+/**
+ * Place Details asks for coordinates and nothing else, which keeps it on the
+ * cheapest of the Details SKUs. Autocomplete cannot return a position, so this
+ * second call is the only way to learn where a picked venue actually is.
+ */
+const DetailsFieldMask = 'location';
+
+/** Google's ids are opaque but bounded; anything longer is not one. */
+const MaxPlaceId = 300;
 
 /**
  * Google returns every prediction field unless told otherwise. The mask is
@@ -55,6 +66,50 @@ type PlacePrediction = {
 
 function bad(status: number, error: string) {
   return Response.json({ error }, { status });
+}
+
+/**
+ * Resolves one place id to a latitude and longitude.
+ *
+ * Called once when a member picks a suggestion, not per keystroke, so it adds a
+ * single billable Details request per match created or town set.
+ */
+async function lookupLocation(apiKey: string, placeId: string) {
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${DetailsUrl}/${encodeURIComponent(placeId)}`, {
+      headers: {
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': DetailsFieldMask,
+      },
+      signal: AbortSignal.timeout(UpstreamTimeoutMs),
+    });
+  } catch {
+    return bad(504, 'upstream_unreachable');
+  }
+
+  if (!upstream.ok) {
+    // As with autocomplete: the upstream body can name the project and the
+    // key's restrictions, so it goes to the log rather than to the caller.
+    console.error('Place details failed', upstream.status, await upstream.text());
+    return bad(502, 'upstream_error');
+  }
+
+  const payload = (await upstream.json()) as {
+    location?: { latitude?: number; longitude?: number };
+  };
+
+  const latitude = payload.location?.latitude;
+  const longitude = payload.location?.longitude;
+
+  // A place with no position is not an error — some ids genuinely have none —
+  // but it must not come back as a pair of zeros, which is a real spot in the
+  // Atlantic. Null, and the caller stores nothing.
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+    return Response.json({ location: null });
+  }
+
+  return Response.json({ location: { latitude, longitude } });
 }
 
 /**
@@ -106,7 +161,22 @@ export default {
       return bad(400, 'invalid_body');
     }
 
-    const { input, kind } = (body ?? {}) as { input?: unknown; kind?: unknown };
+    const { input, kind, placeId } = (body ?? {}) as {
+      input?: unknown;
+      kind?: unknown;
+      placeId?: unknown;
+    };
+
+    // Two shapes, told apart by which field is present rather than by a version
+    // or an action name: `{ placeId }` resolves coordinates, `{ input, kind }`
+    // suggests places. A client deployed before this change sends only the
+    // second and keeps working.
+    if (placeId !== undefined) {
+      if (typeof placeId !== 'string' || placeId.length === 0 || placeId.length > MaxPlaceId) {
+        return bad(400, 'invalid_place_id');
+      }
+      return await lookupLocation(apiKey, placeId);
+    }
 
     if (typeof input !== 'string' || typeof kind !== 'string') return bad(400, 'invalid_body');
     if (!(kind in PrimaryTypesByKind)) return bad(400, 'invalid_kind');
@@ -130,10 +200,11 @@ export default {
     // list, where they belong.
     const locationBias = parseBias(Deno.env.get('PLACES_BIAS'));
 
-    // No session token: tokens only change billing when a session ends in a
-    // Place Details call, and this proxy never makes one — the prediction text
-    // is the whole answer. Add one alongside Place Details if coordinates are
-    // ever needed.
+    // No session token. Tokens exist to bill a run of keystrokes plus the Details
+    // call that ends it as one unit, and would be worth adding — but they have to
+    // be minted per typing session on the client and passed through both calls,
+    // and the saving on one Details lookup per match is not yet worth that
+    // plumbing. Revisit if Places becomes a real line item.
     let upstream: Response;
     try {
       upstream = await fetch(AutocompleteUrl, {

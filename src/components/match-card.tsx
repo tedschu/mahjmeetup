@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CardShadow, LeagueColors, Radius, Spacing, type LeagueColor } from '@/constants/theme';
 import { useTheme, type Theme } from '@/hooks/use-theme';
+import { formatMiles } from '@/lib/geo';
 import { formatWhen, SEATS_PER_MATCH, type Match } from '@/lib/matches';
 
 /**
@@ -153,11 +154,19 @@ export function MatchCard({
   match,
   userId,
   action,
+  distance,
 }: {
   match: Match;
   userId: string;
   /** The screen's own button — Join, Leave, Edit, Enter scores. */
   action?: ReactNode;
+  /**
+   * Miles from the member's town, when both ends have coordinates. Null is
+   * common and not an error — see the note on `Match.latitude` — so the card
+   * simply says nothing rather than "unknown distance", which would be noise on
+   * every card for a group that types its venues.
+   */
+  distance?: number | null;
 }) {
   const theme = useTheme();
   const [showRoster, setShowRoster] = useState(false);
@@ -188,6 +197,13 @@ export function MatchCard({
           {match.location_detail ? (
             <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
               {match.location_detail}
+            </ThemedText>
+          ) : null}
+          {/* Under the address, because it is a fact about the same thing. Absent
+              rather than "unknown" when there is nothing to say. */}
+          {typeof distance === 'number' ? (
+            <ThemedText type="small" style={{ color: theme.accentInk }}>
+              {formatMiles(distance)}
             </ThemedText>
           ) : null}
         </View>

@@ -13,7 +13,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DisplayFont, MaxContentWidth, OnAccent, Radius, Spacing } from '@/constants/theme';
+import { DisplayFont, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { enterMatchScores, formatWhen, type Match } from '@/lib/matches';
 
@@ -156,11 +156,11 @@ export function ScoreEntrySheet({
                 <View
                   style={[
                     styles.button,
-                    { backgroundColor: theme.accent },
+                    { backgroundColor: theme.accentButton },
                     (!allValid || isSaving) && styles.disabled,
                   ]}>
                   {isSaving ? (
-                    <ActivityIndicator color={OnAccent} />
+                    <ActivityIndicator color="#ffffff" />
                   ) : (
                     <ThemedText type="smallBold" style={styles.saveLabel}>
                       Save scores
@@ -234,7 +234,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveLabel: {
-    color: OnAccent,
+    // White on the deep teal fill: 5.4:1, where the near-black it replaced was
+    // correct only while the fill was the pale `accent`.
+    color: '#ffffff',
   },
   pressed: {
     opacity: 0.7,
