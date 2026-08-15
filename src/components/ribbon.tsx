@@ -40,67 +40,131 @@ const StrokeWidth = 30;
 const Frame = { width: 560, height: 1000 } as const;
 
 const Course: readonly { x: number; y: number; width: number }[] = [
-  // Above the top edge, near the middle, broad.
-  { x: 335, y: -60, width: 104 },
-  { x: 248, y: 200, width: 94 },
-  // The far left, at half height.
-  { x: 58, y: 505, width: 100 },
-  { x: 176, y: 762, width: 82 },
-  { x: 392, y: 936, width: 66 },
-  // Beyond the right edge and almost level, so it leaves travelling sideways rather
-  // than running out of the bottom.
-  { x: 640, y: 1010, width: 54 },
+  // Above the top edge, near the middle — enters already in motion.
+  { x: 372, y: -110, width: 54 },
+  { x: 258, y: 145, width: 56 },
+  // Swings back out before committing left. The counter-swells are what make it read
+  // as undulating rather than as one long diagonal, and they need this much vertical
+  // room between them — crowd them and the spline turns them into corners.
+  { x: 328, y: 352, width: 52 },
+  { x: 142, y: 502, width: 56 },
+  // The far left, at half height — the middle of the three anchors.
+  { x: 40, y: 612, width: 58 },
+  { x: 186, y: 764, width: 50 },
+  // One more weave before the tail turns for the middle.
+  { x: 120, y: 872, width: 42 },
+  { x: 302, y: 950, width: 30 },
+  { x: 452, y: 986, width: 14 },
+  /*
+   * The tail, narrowing almost to nothing and running level.
+   *
+   * It ends inside the frame on purpose. An earlier course ran off the right edge,
+   * and because this artwork is stretched into a box only part of the page wide, "off
+   * the edge" meant a hard vertical cut across the middle of the screen. A ribbon can
+   * run out of frame or it can taper away; what it cannot do is stop.
+   */
+  { x: 546, y: 996, width: 4 },
 ] as const;
 
 
 /**
- * A Catmull-Rom spline through the course, sampled for position and direction.
+ * Knot positions for a *centripetal* Catmull-Rom spline — each spaced by the square
+ * root of the distance to the next point.
+ *
+ * This is the whole difference between a wave and a zigzag. Uniform Catmull-Rom
+ * spaces its knots evenly regardless of how far apart the points actually are, and
+ * where the spacing is uneven — which it always is in a hand-written course — it
+ * answers with cusps and overshoot. The turns came out as sharp corners: a lightning
+ * bolt, not a ribbon. Centripetal parameterisation is the standard fix and is
+ * provably free of both cusps and self-intersection.
+ */
+const Knots = Course.reduce<number[]>((acc, point, index) => {
+  if (index === 0) return [0];
+  const previous = Course[index - 1];
+  const span = Math.hypot(point.x - previous.x, point.y - previous.y);
+  // alpha = 0.5 is what makes it centripetal; 0 would be uniform, 1 chordal.
+  return [...acc, acc[index - 1] + Math.sqrt(span)];
+}, []);
+
+/**
+ * The spline through the course, sampled for position, direction and width.
  *
  * Catmull-Rom because it passes *through* its points rather than being pulled near
  * them, so the course above reads as the shape it describes — move a point and the
- * ribbon goes there. The ends are duplicated, which is the usual way to give the
- * first and last segments the neighbour they lack.
+ * ribbon goes there.
  *
- * Returns the width alongside, interpolated the same way, so the taper follows the
- * course instead of being applied afterwards.
+ * Evaluated as a cubic Hermite on each span, with the tangents that non-uniform
+ * Catmull-Rom prescribes. The ends reuse their neighbour's tangent, which is the
+ * usual way to give the first and last spans the neighbour they lack.
  */
 function sampleCourse(t: number) {
   const last = Course.length - 1;
-  const scaled = t * last;
-  const index = Math.min(Math.floor(scaled), last - 1);
-  const s = scaled - index;
+  const total = Knots[last];
+  const target = t * total;
 
-  const p0 = Course[Math.max(index - 1, 0)];
-  const p1 = Course[index];
-  const p2 = Course[index + 1];
-  const p3 = Course[Math.min(index + 2, last)];
+  let i = 0;
+  while (i < last - 1 && Knots[i + 1] < target) i += 1;
 
-  const at = (a: number, b: number, c: number, d: number) =>
-    0.5 *
-    (2 * b + (-a + c) * s + (2 * a - 5 * b + 4 * c - d) * s * s + (-a + 3 * b - 3 * c + d) * s ** 3);
+  const p1 = Course[i];
+  const p2 = Course[i + 1];
+  const t1 = Knots[i];
+  const t2 = Knots[i + 1];
+  const span = t2 - t1 || 1;
+  const s = Math.min(Math.max((target - t1) / span, 0), 1);
 
-  // The derivative, for the tangent. Needed rather than a difference of two samples
-  // because the band's width is offset along the normal, and a normal from a coarse
-  // difference wobbles visibly where the curve turns hardest.
-  const slope = (a: number, b: number, c: number, d: number) =>
-    0.5 * (-a + c + 2 * (2 * a - 5 * b + 4 * c - d) * s + 3 * (-a + 3 * b - 3 * c + d) * s * s);
+  /** The tangent at a knot, from its neighbours, scaled to this span. */
+  const tangent = (index: number, pick: (point: (typeof Course)[number]) => number) => {
+    const before = Course[Math.max(index - 1, 0)];
+    const after = Course[Math.min(index + 1, last)];
+    const gap = Knots[Math.min(index + 1, last)] - Knots[Math.max(index - 1, 0)] || 1;
+    return ((pick(after) - pick(before)) / gap) * span;
+  };
 
-  const x = at(p0.x, p1.x, p2.x, p3.x);
-  const y = at(p0.y, p1.y, p2.y, p3.y);
-  const dx = slope(p0.x, p1.x, p2.x, p3.x);
-  const dy = slope(p0.y, p1.y, p2.y, p3.y);
-  const length = Math.hypot(dx, dy) || 1;
+  const hermite = (pick: (point: (typeof Course)[number]) => number) => {
+    const a = pick(p1);
+    const b = pick(p2);
+    const m1 = tangent(i, pick);
+    const m2 = tangent(i + 1, pick);
+
+    const value =
+      (2 * s ** 3 - 3 * s * s + 1) * a +
+      (s ** 3 - 2 * s * s + s) * m1 +
+      (-2 * s ** 3 + 3 * s * s) * b +
+      (s ** 3 - s * s) * m2;
+
+    // The derivative, for the tangent direction. Needed rather than a difference of
+    // two samples because the band is offset along the normal, and a normal from a
+    // coarse difference wobbles visibly where the curve turns hardest.
+    const slope =
+      (6 * s * s - 6 * s) * a +
+      (3 * s * s - 4 * s + 1) * m1 +
+      (-6 * s * s + 6 * s) * b +
+      (3 * s * s - 2 * s) * m2;
+
+    return { value, slope };
+  };
+
+  const x = hermite((point) => point.x);
+  const y = hermite((point) => point.y);
+  const width = hermite((point) => point.width);
+  const length = Math.hypot(x.slope, y.slope) || 1;
 
   return {
-    x,
-    y,
+    x: x.value,
+    y: y.value,
     // Unit normal: the tangent turned a quarter turn. Offsetting along this rather
     // than horizontally is what lets the ribbon keep its width where it runs level —
     // a horizontal offset would collapse the band to nothing at the bottom, where
     // the course deliberately flattens out.
-    nx: -dy / length,
-    ny: dx / length,
-    half: at(p0.width, p1.width, p2.width, p3.width) / 2,
+    nx: -y.slope / length,
+    ny: x.slope / length,
+    /*
+     * Clamped at zero. The spline passes through its points but moves freely between
+     * them, and where the tail narrows sharply that can take the interpolated width
+     * negative — which flips the two edges past each other and ties the end of the
+     * ribbon into a knot.
+     */
+    half: Math.max(0, width.value) / 2,
   };
 }
 
