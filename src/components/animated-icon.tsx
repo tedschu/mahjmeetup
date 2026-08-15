@@ -2,6 +2,8 @@ import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+
+import { SplashBackground } from '@/constants/theme';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -78,8 +80,9 @@ const logoKeyframe = new Keyframe({
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>
-      {/* No tinted plate behind the mark: the tile carries its own gold ring,
-          and a coloured square behind it reads as a second, competing badge. */}
+      {/* No tinted plate behind the mark: the logo is already a rounded square
+          with its own edge, and a coloured plate behind it reads as a second,
+          competing badge. */}
       <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
         <Image style={styles.image} source={require('@/assets/images/logo.png')} />
       </Animated.View>
@@ -106,7 +109,7 @@ const styles = StyleSheet.create({
   },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    backgroundColor: SplashBackground,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,

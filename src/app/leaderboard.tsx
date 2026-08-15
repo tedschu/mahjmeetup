@@ -19,6 +19,7 @@ import {
   CardShadow,
   LeagueColors,
   MaxContentWidth,
+  Radius,
   Spacing,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -76,10 +77,13 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
         {unplayed ? '—' : row.rank}
       </ThemedText>
 
+      {/* Ringed in the card surface, not the hairline rule: on the highlighted
+          row the rule is nearly the same value as the highlight and the ring
+          disappeared. */}
       <Avatar
         person={{ name: row.name, avatar_url: row.avatar_url ?? null }}
         size={30}
-        ring={theme.rule}
+        ring={isCurrentUser ? theme.background : theme.rule}
       />
 
       <View style={styles.identity}>
@@ -100,7 +104,9 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
         type="figure"
         style={[
           styles.points,
-          { color: row.rank === 1 && !unplayed ? theme.accentGold : theme.text },
+          // Deep amber rather than the amber fill: this is a 22px numeral, and
+          // `#ffa35a` on white is 2.0:1.
+          { color: row.rank === 1 && !unplayed ? theme.accentWarmInk : theme.text },
           unplayed && styles.muted,
         ]}>
         {row.total_points}
@@ -183,7 +189,7 @@ export default function LeaderboardScreen() {
     <ThemedView type="backgroundElement" style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <ThemedText type="label" themeColor="accent">
+          <ThemedText type="label" themeColor="accentInk">
             {playedCount === 0
               ? 'No cards recorded'
               : `${playedCount} ${playedCount === 1 ? 'member' : 'members'} playing`}
@@ -217,10 +223,10 @@ export default function LeaderboardScreen() {
                     {scope.tint ? (
                       <View style={[styles.scopeDot, { backgroundColor: scope.tint }]} />
                     ) : null}
-                    <ThemedText
-                      type="label"
-                      themeColor={selected ? 'text' : 'textSecondary'}
-                      style={selected && scope.tint ? { color: scope.tint } : undefined}>
+                    {/* The dot carries the league's colour; the label stays on
+                        readable ink. Several league colours are pastels that
+                        cannot be read as 11px type. */}
+                    <ThemedText type="label" themeColor={selected ? 'text' : 'textSecondary'}>
                       {scope.label}
                     </ThemedText>
                   </ThemedView>
@@ -231,7 +237,7 @@ export default function LeaderboardScreen() {
         ) : null}
 
         {error ? (
-          <ThemedText type="small" style={styles.errorBanner}>
+          <ThemedText type="small" style={[styles.errorBanner, { color: theme.danger }]}>
             {error}
           </ThemedText>
         ) : null}
@@ -287,7 +293,6 @@ const styles = StyleSheet.create({
   errorBanner: {
     marginHorizontal: Spacing.four,
     marginBottom: Spacing.two,
-    color: '#c0392b',
   },
   listContent: {
     paddingHorizontal: Spacing.four,
@@ -308,7 +313,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     minHeight: 36,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
   },
   scopeDot: {
@@ -324,7 +329,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     gap: Spacing.three,
   },

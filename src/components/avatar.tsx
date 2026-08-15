@@ -60,7 +60,7 @@ export function Avatar({
 
   return (
     <View
-      style={[styles.frame, styles.initials, frame, { backgroundColor: theme.backgroundSelected }]}>
+      style={[styles.frame, styles.initials, frame, { backgroundColor: theme.backgroundElement }]}>
       <ThemedText
         type="label"
         themeColor="textSecondary"

@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GradientButton } from '@/components/button';
 import { PlaceAutocompleteInput } from '@/components/place-autocomplete-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   EXPERIENCE_LEVELS,
@@ -210,38 +211,26 @@ export default function ProfileScreen() {
             </View>
 
             {error ? (
-              <ThemedText type="small" style={styles.error}>
+              <ThemedText type="small" style={{ color: theme.danger }}>
                 {error}
               </ThemedText>
             ) : null}
             {status ? (
-              <ThemedText type="small" style={{ color: theme.accentGold }}>
+              <ThemedText type="small" style={{ color: theme.accentInk }}>
                 {status}
               </ThemedText>
             ) : null}
 
-            <Pressable
-              onPress={save}
-              disabled={isSaving}
-              style={({ pressed }) => pressed && styles.pressed}>
-              <View
-                style={[styles.primaryButton, { backgroundColor: theme.accent }, isSaving && styles.disabled]}>
-                {isSaving ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <ThemedText type="smallBold" style={styles.primaryLabel}>
-                    Save profile
-                  </ThemedText>
-                )}
-              </View>
-            </Pressable>
+            <GradientButton label="Save profile" onPress={save} busy={isSaving} wide />
 
+            {/* Signing out is not something to encourage, so it stays the quietest
+                control on the screen rather than taking the outline treatment. */}
             <Pressable onPress={signOut} style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="background" style={[styles.secondaryButton, { borderColor: theme.rule }]}>
+              <View style={[styles.secondaryButton, { borderColor: theme.rule }]}>
                 <ThemedText type="smallBold" themeColor="textSecondary">
                   Sign out
                 </ThemedText>
-              </ThemedView>
+              </View>
             </Pressable>
           </ScrollView>
         )}
@@ -278,7 +267,7 @@ const styles = StyleSheet.create({
   input: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.small,
     borderWidth: StyleSheet.hairlineWidth,
     fontSize: 16,
   },
@@ -290,24 +279,12 @@ const styles = StyleSheet.create({
   chip: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
-  },
-  error: {
-    color: '#c0392b',
-  },
-  primaryButton: {
-    paddingVertical: Spacing.three,
-    borderRadius: Spacing.three,
-    alignItems: 'center',
-    marginTop: Spacing.two,
-  },
-  primaryLabel: {
-    color: '#ffffff',
   },
   secondaryButton: {
     paddingVertical: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },

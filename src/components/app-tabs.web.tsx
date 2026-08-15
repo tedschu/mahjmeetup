@@ -91,7 +91,7 @@ export function TabButton({
     <Pressable
       {...props}
       style={({ pressed }) => [compact && styles.compactTrigger, pressed && styles.pressed]}>
-      {/* A gold rule marks the active tab rather than a filled shape: the
+      {/* A teal rule marks the active tab rather than a filled shape: the
           filter chips are filled pills, and the navigation should not read as
           another row of filters. The rule sits above the label in the bottom
           bar and below it in the top bar, so it always points at the edge the
@@ -102,8 +102,8 @@ export function TabButton({
           styles.tabButtonView,
           compact && styles.compactTabButtonView,
           compact
-            ? { borderTopColor: isFocused ? theme.accentGold : 'transparent' }
-            : { borderBottomColor: isFocused ? theme.accentGold : 'transparent' },
+            ? { borderTopColor: isFocused ? theme.accent : 'transparent' }
+            : { borderBottomColor: isFocused ? theme.accent : 'transparent' },
         ]}>
         {/* The icon only appears on the bottom bar. On the wide bar the labels
             already fit, and four icons there would just be decoration. */}
@@ -138,7 +138,11 @@ export function CustomTabList(props: TabListProps) {
   }
 
   return (
-    <View {...props} style={styles.tabListContainer}>
+    // Explicitly themed rather than left transparent. Transparent let the page
+    // body show through, which is white — so in dark mode the bar stayed white
+    // and the active tab's label, which is near-white ink, all but disappeared
+    // on it.
+    <View {...props} style={[styles.tabListContainer, { backgroundColor: theme.background }]}>
       {/* Shares the content column's width and padding, so the mark's left
           edge lines up with the headings and cards below it. */}
       <View style={styles.bar}>
@@ -148,7 +152,7 @@ export function CustomTabList(props: TabListProps) {
           source={require('@/assets/images/logo.png')}
           style={styles.brandMark}
           contentFit="contain"
-          accessibilityLabel="Mahjong Meetup"
+          accessibilityLabel="SEVEN BAM"
         />
 
         {/* No pill around the tabs: the gold rule already marks the active one,

@@ -4,7 +4,7 @@ import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Avatar, EmptySeat } from '@/components/avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { CardShadow, LeagueColors, Spacing, type LeagueColor } from '@/constants/theme';
+import { CardShadow, LeagueColors, Radius, Spacing, type LeagueColor } from '@/constants/theme';
 import { useTheme, type Theme } from '@/hooks/use-theme';
 import { formatWhen, SEATS_PER_MATCH, type Match } from '@/lib/matches';
 
@@ -25,24 +25,30 @@ export function standingFor(match: Match, userId: string): Standing {
 }
 
 /**
- * Gold for yours, orange for the one thing you can act on, a quiet blue once
- * you are in, and the hairline grey for matches that want to recede. Every
- * colour is already in the palette; none are invented here.
+ * Teal — the interactive colour — for the one thing you can act on. Amber for a
+ * match that is yours to run. Secondary ink once you are simply in, and the
+ * hairline for matches that want to recede.
+ *
+ * `bar` is a fill and `note` is type, so they cannot be the same value: four of
+ * the brand colours fail contrast as small text. Hence the paired ink.
  */
 function appearance(standing: Standing, theme: Theme) {
   switch (standing) {
     case 'hosting':
-      return { bar: theme.accentGold, note: 'Hosting', muted: false };
+      return { bar: theme.accentWarm, ink: theme.accentWarmInk, note: 'Hosting', muted: false };
     case 'seated':
-      return { bar: theme.textSecondary, note: "You're in", muted: false };
+      // Lavender — the guide's Accent role. It was the secondary ink, which at
+      // 4px read as a heavy dark stripe: louder than the teal bar on the match
+      // you can actually act on, which is backwards.
+      return { bar: theme.accentAlt, ink: theme.accentAltInk, note: "You're in", muted: false };
     case 'joinable':
-      return { bar: theme.accent, note: null, muted: false };
+      return { bar: theme.accent, ink: theme.accentInk, note: null, muted: false };
     case 'full':
-      return { bar: theme.rule, note: 'Full', muted: true };
+      return { bar: theme.rule, ink: theme.textSecondary, note: 'Full', muted: true };
     case 'canceled':
-      return { bar: theme.rule, note: 'Canceled', muted: true };
+      return { bar: theme.rule, ink: theme.textSecondary, note: 'Canceled', muted: true };
     case 'completed':
-      return { bar: theme.rule, note: 'Played', muted: true };
+      return { bar: theme.rule, ink: theme.textSecondary, note: 'Played', muted: true };
   }
 }
 
@@ -115,7 +121,7 @@ function WhoIsComingSheet({
                     {player.profile?.name ?? 'Unnamed member'}
                   </ThemedText>
                   {player.player_id === match.host_id ? (
-                    <ThemedText type="label" style={{ color: theme.accentGold }}>
+                    <ThemedText type="label" style={{ color: theme.accentWarmInk }}>
                       Host
                     </ThemedText>
                   ) : null}
@@ -156,7 +162,7 @@ export function MatchCard({
   const theme = useTheme();
   const [showRoster, setShowRoster] = useState(false);
   const standing = standingFor(match, userId);
-  const { bar, note, muted } = appearance(standing, theme);
+  const { bar, ink, note, muted } = appearance(standing, theme);
 
   return (
     <View
@@ -195,7 +201,12 @@ export function MatchCard({
           {formatWhen(match.date_time)}
         </ThemedText>
         {/* Named and coloured, so you can tell at a glance which league a table
-            belongs to rather than just that it belongs to one. */}
+            belongs to rather than just that it belongs to one.
+
+            The dot carries the league's colour and the label stays on secondary
+            ink. Four of the six league colours are pastels that fail contrast as
+            11px type, and letting only the dot be coloured also keeps a row of
+            tags from reading as six different kinds of text. */}
         {match.league ? (
           <View style={styles.leagueTag}>
             <View
@@ -204,9 +215,7 @@ export function MatchCard({
                 { backgroundColor: LeagueColors[match.league.color as LeagueColor] ?? theme.accent },
               ]}
             />
-            <ThemedText
-              type="label"
-              style={{ color: LeagueColors[match.league.color as LeagueColor] ?? theme.accent }}>
+            <ThemedText type="label" themeColor="textSecondary">
               {match.league.name}
               {match.table_number ? ` · Table ${match.table_number}` : ''}
             </ThemedText>
@@ -218,7 +227,7 @@ export function MatchCard({
           </ThemedText>
         ) : null}
         {note ? (
-          <ThemedText type="label" style={{ color: bar === theme.rule ? theme.textSecondary : bar }}>
+          <ThemedText type="label" style={{ color: ink }}>
             {note}
           </ThemedText>
         ) : null}
@@ -252,7 +261,7 @@ const styles = StyleSheet.create({
     // survives any width without a second absolutely positioned view.
     paddingLeft: Spacing.three,
     borderLeftWidth: 4,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.card,
     gap: Spacing.one,
   },
   /**
@@ -306,7 +315,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 360,
     padding: Spacing.four,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.card,
     gap: Spacing.one,
   },
   roster: {

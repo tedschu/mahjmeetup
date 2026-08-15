@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LeagueDetail } from '@/components/league-detail';
+import { GradientButton } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -19,6 +20,8 @@ import {
   LeagueColorNames,
   LeagueColors,
   MaxContentWidth,
+  OnAccent,
+  Radius,
   Spacing,
   type LeagueColor,
 } from '@/constants/theme';
@@ -190,7 +193,7 @@ export default function LeaguesScreen() {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.header}>
-            <ThemedText type="label" themeColor="accent">
+            <ThemedText type="label" themeColor="accentAltInk">
               {leagues.length === 0
                 ? 'Not in a league'
                 : `${leagues.length} ${leagues.length === 1 ? 'league' : 'leagues'}`}
@@ -202,7 +205,7 @@ export default function LeaguesScreen() {
           </View>
 
           {error ? (
-            <ThemedText type="small" style={styles.error}>
+            <ThemedText type="small" style={{ color: theme.danger }}>
               {error}
             </ThemedText>
           ) : null}
@@ -237,15 +240,7 @@ export default function LeaguesScreen() {
               busy={busy}
             />
           ) : (
-            <Pressable
-              onPress={() => setIsCreating(true)}
-              style={({ pressed }) => pressed && styles.pressed}>
-              <View style={[styles.primaryButton, styles.wide, { backgroundColor: theme.accent }]}>
-                <ThemedText type="smallBold" style={styles.primaryLabel}>
-                  New league
-                </ThemedText>
-              </View>
-            </Pressable>
+            <GradientButton label="New league" onPress={() => setIsCreating(true)} wide />
           )}
 
           {!isLoading && leagues.length === 0 && !isCreating ? (
@@ -283,13 +278,13 @@ const styles = StyleSheet.create({
   },
   leagueCard: {
     padding: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.card,
     borderLeftWidth: 4,
     boxShadow: CardShadow,
   },
   card: {
     padding: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     gap: Spacing.two,
     boxShadow: CardShadow,
@@ -297,7 +292,7 @@ const styles = StyleSheet.create({
   input: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.small,
     borderWidth: StyleSheet.hairlineWidth,
     fontSize: 16,
   },
@@ -324,10 +319,10 @@ const styles = StyleSheet.create({
     minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: Radius.pill,
   },
   wide: {
-    borderRadius: Spacing.three,
+    borderRadius: Radius.pill,
   },
   secondaryButton: {
     paddingVertical: Spacing.two,
@@ -335,16 +330,13 @@ const styles = StyleSheet.create({
     minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: Radius.pill,
   },
   primaryLabel: {
-    color: '#ffffff',
+    color: OnAccent,
   },
   disabled: {
     opacity: 0.5,
-  },
-  error: {
-    color: '#c0392b',
   },
   centered: {
     marginTop: Spacing.three,

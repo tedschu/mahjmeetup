@@ -11,7 +11,7 @@ export type ThemedTextProps = TextProps & {
     | 'small'
     | 'smallBold'
     | 'subtitle'
-    /** Uppercase, tracked section header, after the NMJL card's category rows. */
+    /** Uppercase, tracked section header. */
     | 'label'
     /** Tabular figures for the value column. Never use for prose. */
     | 'figure'
@@ -29,7 +29,10 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   return (
     <Text
       style={[
-        { color: theme[themeColor ?? 'text'] },
+        // `linkPrimary` is the one type that carries its own colour, and it has to
+        // come from the theme rather than the stylesheet so it inverts in dark
+        // mode. Resolved here because a StyleSheet entry cannot read the theme.
+        { color: theme[themeColor ?? (type === 'linkPrimary' ? 'accentInk' : 'text')] },
         type === 'default' && styles.default,
         type === 'defaultSemiBold' && styles.defaultSemiBold,
         type === 'title' && styles.title,
@@ -70,34 +73,47 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: 600,
   },
+  /**
+   * Sizes across the display types stepped down from where Archivo Narrow had
+   * them. Poppins is a geometric sans with wide, round bowls; set at the old
+   * 44/28/26 it overflowed headings and pushed score columns into the leader
+   * rules. These are the sizes at which each takes roughly the width the
+   * condensed face used to.
+   */
   title: {
     fontFamily: DisplayFont,
-    fontSize: 44,
-    lineHeight: 48,
-    letterSpacing: -0.4,
+    fontSize: 34,
+    lineHeight: 42,
+    letterSpacing: -0.6,
   },
   subtitle: {
     fontFamily: DisplayFont,
-    fontSize: 28,
-    lineHeight: 34,
-    letterSpacing: -0.2,
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
   label: {
     fontFamily: DisplayFont,
-    fontSize: 12,
+    fontSize: 11,
     lineHeight: 16,
-    letterSpacing: 1.4,
+    // Tighter than the condensed face wanted: Poppins is already open, and 1.4
+    // read as gappy rather than as tracked.
+    letterSpacing: 0.9,
     textTransform: 'uppercase',
   },
+  /**
+   * Score columns line up on `tabular-nums` now rather than on the face's own
+   * proportions, which is what a condensed figure set gave for free.
+   */
   figure: {
     fontFamily: DisplayFont,
-    fontSize: 26,
-    lineHeight: 30,
+    fontSize: 22,
+    lineHeight: 28,
     fontVariant: ['tabular-nums'],
   },
   figureSmall: {
     fontFamily: DisplayFont,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
     fontVariant: ['tabular-nums'],
   },
@@ -108,7 +124,6 @@ const styles = StyleSheet.create({
   linkPrimary: {
     lineHeight: 30,
     fontSize: 14,
-    color: '#3c87f7',
   },
   code: {
     fontFamily: Fonts.mono,

@@ -1,4 +1,4 @@
-import { ArchivoNarrow_600SemiBold, useFonts } from '@expo-google-fonts/archivo-narrow';
+import { Poppins_600SemiBold, useFonts } from '@expo-google-fonts/poppins';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
@@ -44,7 +44,7 @@ async function redeemInvite() {
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const [session, setSession] = useState<Session | null>(null);
-  const [fontsLoaded] = useFonts({ ArchivoNarrow_600SemiBold });
+  const [fontsLoaded] = useFonts({ Poppins_600SemiBold });
 
   useEffect(() => {
     (async () => {

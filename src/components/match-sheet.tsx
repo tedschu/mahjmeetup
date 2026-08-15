@@ -15,7 +15,7 @@ import {
 import { PlaceAutocompleteInput } from '@/components/place-autocomplete-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { LeagueColors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { LeagueColors, MaxContentWidth, OnAccent, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchMyLeagues, type MyLeague } from '@/lib/leagues';
 import {
@@ -215,7 +215,7 @@ export function MatchSheet({
             </View>
 
             {date.length > 0 && time.length > 0 && at === null ? (
-              <ThemedText type="small" style={styles.error}>
+              <ThemedText type="small" style={{ color: theme.danger }}>
                 Use YYYY-MM-DD and a time like 6:30 pm.
               </ThemedText>
             ) : null}
@@ -312,7 +312,7 @@ export function MatchSheet({
             ) : null}
 
             {error ? (
-              <ThemedText type="small" style={styles.error}>
+              <ThemedText type="small" style={{ color: theme.danger }}>
                 {error}
               </ThemedText>
             ) : null}
@@ -337,7 +337,7 @@ export function MatchSheet({
                     !canSave && styles.disabled,
                   ]}>
                   {isSaving ? (
-                    <ActivityIndicator color="#ffffff" />
+                    <ActivityIndicator color={OnAccent} />
                   ) : (
                     <ThemedText type="smallBold" style={styles.postLabel}>
                       {isEditing ? 'Save changes' : 'Post match'}
@@ -373,7 +373,7 @@ export function MatchSheet({
                         onPress={remove}
                         disabled={isSaving}
                         style={({ pressed }) => pressed && styles.pressed}>
-                        <ThemedText type="smallBold" style={styles.destructive}>
+                        <ThemedText type="smallBold" style={{ color: theme.danger }}>
                           Yes, {removalLabel.toLowerCase()}
                         </ThemedText>
                       </Pressable>
@@ -383,7 +383,7 @@ export function MatchSheet({
                   <Pressable
                     onPress={() => setIsConfirmingRemoval(true)}
                     style={({ pressed }) => pressed && styles.pressed}>
-                    <ThemedText type="smallBold" style={styles.destructive}>
+                    <ThemedText type="smallBold" style={{ color: theme.danger }}>
                       {removalLabel}
                     </ThemedText>
                   </Pressable>
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   input: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.small,
     fontSize: 16,
   },
   multiline: {
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     minHeight: 40,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
   },
   leagueDot: {
@@ -468,12 +468,6 @@ const styles = StyleSheet.create({
   toggleLabel: {
     flex: 1,
   },
-  error: {
-    color: '#c0392b',
-  },
-  destructive: {
-    color: '#c0392b',
-  },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -483,7 +477,7 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.four,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 110,
@@ -504,7 +498,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   postLabel: {
-    color: '#ffffff',
+    color: OnAccent,
   },
   pressed: {
     opacity: 0.7,

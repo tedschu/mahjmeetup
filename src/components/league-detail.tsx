@@ -6,7 +6,7 @@ import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { CardShadow, LeagueColors, Spacing } from '@/constants/theme';
+import { CardShadow, LeagueColors, OnAccent, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   createSeason,
@@ -245,7 +245,7 @@ export function LeagueDetail({
       </View>
 
       {error ? (
-        <ThemedText type="small" style={styles.error}>
+        <ThemedText type="small" style={{ color: theme.danger }}>
           {error}
         </ThemedText>
       ) : null}
@@ -444,7 +444,7 @@ export function LeagueDetail({
                             { backgroundColor: tint, borderColor: tint },
                             session.played && styles.disabled,
                           ]}>
-                          <Icon name="shuffle" color="#ffffff" size={18} />
+                          <Icon name="shuffle" color={OnAccent} size={18} />
                         </View>
                       </Pressable>
 
@@ -476,7 +476,7 @@ export function LeagueDetail({
       ) : null}
 
       <Pressable onPress={leave} style={({ pressed }) => pressed && styles.pressed}>
-        <ThemedText type="label" style={styles.destructive}>
+        <ThemedText type="label" style={[styles.destructive, { color: theme.danger }]}>
           {busy === 'leave' ? 'Leaving…' : 'Leave this league'}
         </ThemedText>
       </Pressable>
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     gap: Spacing.two,
     boxShadow: CardShadow,
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     minHeight: 36,
     justifyContent: 'center',
-    borderRadius: Spacing.three,
+    borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
   },
   newSession: {
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
   input: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.small,
     borderWidth: StyleSheet.hairlineWidth,
     fontSize: 16,
   },
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 34,
     height: 34,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
@@ -599,19 +599,15 @@ const styles = StyleSheet.create({
     minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: Radius.pill,
   },
   primaryLabel: {
-    color: '#ffffff',
+    color: OnAccent,
   },
   disabled: {
     opacity: 0.4,
   },
-  error: {
-    color: '#c0392b',
-  },
   destructive: {
-    color: '#c0392b',
     minHeight: 40,
     textAlignVertical: 'center',
   },

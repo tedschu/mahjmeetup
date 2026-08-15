@@ -13,7 +13,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DisplayFont, MaxContentWidth, Spacing } from '@/constants/theme';
+import { DisplayFont, MaxContentWidth, OnAccent, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { enterMatchScores, formatWhen, type Match } from '@/lib/matches';
 
@@ -119,7 +119,7 @@ export function ScoreEntrySheet({
                         {
                           color: theme.text,
                           backgroundColor: theme.backgroundElement,
-                          borderColor: invalid ? '#c0392b' : 'transparent',
+                          borderColor: invalid ? theme.danger : 'transparent',
                         },
                       ]}
                     />
@@ -129,7 +129,7 @@ export function ScoreEntrySheet({
             </View>
 
             {error ? (
-              <ThemedText type="small" style={styles.error}>
+              <ThemedText type="small" style={{ color: theme.danger }}>
                 {error}
               </ThemedText>
             ) : null}
@@ -160,7 +160,7 @@ export function ScoreEntrySheet({
                     (!allValid || isSaving) && styles.disabled,
                   ]}>
                   {isSaving ? (
-                    <ActivityIndicator color="#ffffff" />
+                    <ActivityIndicator color={OnAccent} />
                   ) : (
                     <ThemedText type="smallBold" style={styles.saveLabel}>
                       Save scores
@@ -211,13 +211,10 @@ const styles = StyleSheet.create({
     width: 110,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.small,
     borderWidth: 1,
     textAlign: 'right',
     fontSize: 16,
-  },
-  error: {
-    color: '#c0392b',
   },
   actions: {
     flexDirection: 'row',
@@ -228,7 +225,7 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.four,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 110,
@@ -237,7 +234,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveLabel: {
-    color: '#ffffff',
+    color: OnAccent,
   },
   pressed: {
     opacity: 0.7,

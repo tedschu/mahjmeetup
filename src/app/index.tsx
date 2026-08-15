@@ -3,11 +3,13 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GradientButton } from '@/components/button';
 import { MatchCard } from '@/components/match-card';
 import { MatchSheet } from '@/components/match-sheet';
+import { Ribbon } from '@/components/ribbon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   fetchUpcomingMatches,
@@ -54,11 +56,14 @@ function FilterBar({ value, onChange }: { value: FilterKey; onChange: (next: Fil
             style={({ pressed }) => [pressed && styles.pressed]}>
             <ThemedView
               type={selected ? 'backgroundSelected' : 'background'}
-              style={styles.filterChip}>
-              <ThemedText
-                type="label"
-                themeColor={selected ? 'text' : 'textSecondary'}
-                style={selected ? { color: theme.text } : undefined}>
+              style={[
+                styles.filterChip,
+                // The chosen chip is outlined in teal as well as filled with the
+                // highlight, so it still reads as chosen in dark mode where the
+                // highlight is a muted warm brown rather than a pale yellow.
+                { borderColor: selected ? theme.accent : theme.rule },
+              ]}>
+              <ThemedText type="label" themeColor={selected ? 'text' : 'textSecondary'}>
                 {filter.label}
               </ThemedText>
             </ThemedView>
@@ -97,11 +102,12 @@ function SeatButton({
   if (isSeated(match, userId)) {
     return (
       <Pressable onPress={onLeave} style={({ pressed }) => pressed && styles.pressed}>
-        <ThemedView type="backgroundSelected" style={styles.seatButton}>
+        <View
+          style={[styles.seatButton, styles.outlined, { borderColor: theme.rule }]}>
           <ThemedText type="label" themeColor="textSecondary">
             Leave
           </ThemedText>
-        </ThemedView>
+        </View>
       </Pressable>
     );
   }
@@ -111,7 +117,8 @@ function SeatButton({
   return (
     <Pressable onPress={onJoin} style={({ pressed }) => pressed && styles.pressed}>
       <View style={[styles.seatButton, { backgroundColor: theme.accent }]}>
-        <ThemedText type="label" style={styles.joinLabel}>
+        {/* Dark type on the teal, not white: white on `#2fb7a6` is 2.5:1. */}
+        <ThemedText type="label" style={{ color: theme.onAccent }}>
           Join
         </ThemedText>
       </View>
@@ -200,7 +207,9 @@ export default function BrowseMatchesScreen() {
             <View style={styles.headerText}>
               {/* Carries a count rather than restating the title, so the
                   eyebrow tells you something the heading does not. */}
-              <ThemedText type="label" themeColor="accent">
+              {/* `accentInk`, not `accent`: the teal fill is 2.5:1 on white and
+                  this is 11px type. */}
+              <ThemedText type="label" themeColor="accentInk">
                 {openCount === 0
                   ? 'No open tables'
                   : `${openCount} ${openCount === 1 ? 'table' : 'tables'} open`}
@@ -210,28 +219,21 @@ export default function BrowseMatchesScreen() {
                 Find a table to join
               </ThemedText>
             </View>
-            <Pressable
-              onPress={() => setIsProposing(true)}
-              style={({ pressed }) => pressed && styles.pressed}>
-              <View style={[styles.proposeButton, { backgroundColor: theme.accent }]}>
-                <ThemedText type="smallBold" style={styles.proposeLabel}>
-                  Propose
-                </ThemedText>
-              </View>
-            </Pressable>
+            {/* This screen's one gradient. */}
+            <GradientButton label="Propose" onPress={() => setIsProposing(true)} />
           </View>
         </View>
 
         <FilterBar value={filter} onChange={setFilter} />
 
         {error ? (
-          <ThemedText type="small" style={styles.errorBanner}>
+          <ThemedText type="small" style={[styles.errorBanner, { color: theme.danger }]}>
             {error}
           </ThemedText>
         ) : null}
 
         {isLoading ? (
-          <ActivityIndicator style={styles.centered} />
+          <ActivityIndicator style={styles.spinner} />
         ) : (
           <FlatList
             data={visible}
@@ -254,11 +256,16 @@ export default function BrowseMatchesScreen() {
             contentContainerStyle={styles.listContent}
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={
-              <ThemedText style={styles.centered} themeColor="textSecondary">
-                {filter === 'all'
-                  ? 'No upcoming matches. Propose one to get a table going.'
-                  : 'No matches match this filter.'}
-              </ThemedText>
+              <View style={styles.empty}>
+                {/* Something to look at where there was previously one grey line
+                    of text in the middle of a blank screen. */}
+                <Ribbon width={120} height={160} opacity={0.5} />
+                <ThemedText style={styles.centered} themeColor="textSecondary">
+                  {filter === 'all'
+                    ? 'No upcoming matches. Propose one to get a table going.'
+                    : 'No matches match this filter.'}
+                </ThemedText>
+              </View>
             }
           />
         )}
@@ -305,14 +312,6 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
   },
-  proposeButton: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    borderRadius: Spacing.three,
-  },
-  proposeLabel: {
-    color: '#ffffff',
-  },
   subtitle: {
     marginTop: 2,
   },
@@ -327,12 +326,12 @@ const styles = StyleSheet.create({
     minHeight: 40,
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
   },
   errorBanner: {
     marginHorizontal: Spacing.four,
     marginBottom: Spacing.two,
-    color: '#c0392b',
   },
   listContent: {
     paddingHorizontal: Spacing.four,
@@ -342,21 +341,29 @@ const styles = StyleSheet.create({
   /** Same scale as the host controls on My Matches, so cards read consistently. */
   seatButton: {
     paddingVertical: Spacing.one,
-    minHeight: 32,
+    minHeight: 34,
     minWidth: 104,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.pill,
   },
-  joinLabel: {
-    color: '#ffffff',
+  /** Leaving is not the encouraged action, so it gets an outline, not a fill. */
+  outlined: {
+    borderWidth: 1,
   },
   pressed: {
     opacity: 0.7,
   },
+  empty: {
+    marginTop: Spacing.five,
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
   centered: {
-    marginTop: Spacing.six,
     textAlign: 'center',
+  },
+  spinner: {
+    marginTop: Spacing.six,
   },
 });

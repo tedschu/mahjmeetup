@@ -1,23 +1,16 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  SectionList,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Icon, type IconName } from '@/components/icon';
+import { QuietButton } from '@/components/button';
 import { MatchCard } from '@/components/match-card';
 import { MatchSheet } from '@/components/match-sheet';
+import { Ribbon } from '@/components/ribbon';
 import { ScoreEntrySheet } from '@/components/score-entry-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import {
   addMatchToCalendar,
   loadCalendarSent,
@@ -46,81 +39,38 @@ function MatchActions({
   onEdit: () => void;
   onEnterScores: () => void;
 }) {
-  const theme = useTheme();
-
   const isHost = match.host_id === userId;
   const scored = match.players.some((player) => player.score !== null);
   const isOver = match.status === 'canceled' || match.status === 'completed';
   // Only the host records the card, and a called-off match has nothing to record.
   const canScore = isHost && match.status !== 'canceled' && match.players.length > 0;
 
-  // Icons rather than words: three labelled buttons could not share a line with
-  // the player names at any width, and stacking them made a card action look
-  // like a form's submit. Each carries its label for screen readers instead.
   return (
     <View style={styles.actions}>
       {/* Every match on this screen is one the member is part of, so there is
           always something worth putting in a calendar — until it is past. */}
       {isOver ? null : (
-        <IconButton
-          name={sentToCalendar ? 'calendarCheck' : 'calendarPlus'}
+        <QuietButton
+          icon={sentToCalendar ? 'calendarCheck' : 'calendarPlus'}
           label={sentToCalendar ? 'Already sent to calendar — send again' : 'Add to calendar'}
           onPress={onAddToCalendar}
+          tone={sentToCalendar ? 'done' : 'default'}
         />
       )}
 
       {isHost && !isOver ? (
-        <IconButton name="pencil" label="Edit match" onPress={onEdit} />
+        <QuietButton icon="pencil" label="Edit match" onPress={onEdit} />
       ) : null}
 
       {canScore ? (
-        <IconButton
-          name="scorecard"
+        <QuietButton
+          icon="scorecard"
           label={scored ? 'Edit scores' : 'Enter scores'}
           onPress={onEnterScores}
-          tone={theme.accent}
+          tone="primary"
         />
       ) : null}
     </View>
-  );
-}
-
-/**
- * A square control that says what it does only to assistive tech. `tone` fills it
- * for the one action worth drawing the eye — recording the card — and the rest
- * stay quiet.
- */
-function IconButton({
-  name,
-  label,
-  onPress,
-  tone,
-}: {
-  name: IconName;
-  label: string;
-  onPress: () => void;
-  tone?: string;
-}) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => pressed && styles.pressed}>
-      <View
-        style={[
-          styles.iconButton,
-          tone
-            ? // Border matched to the fill rather than left to default to black,
-              // which was drawing a dark outline around the filled button.
-              { backgroundColor: tone, borderColor: tone }
-            : { backgroundColor: theme.backgroundSelected, borderColor: theme.rule },
-        ]}>
-        <Icon name={name} color={tone ? '#ffffff' : theme.textSecondary} size={18} />
-      </View>
-    </Pressable>
   );
 }
 
@@ -205,7 +155,7 @@ export default function MatchesScreen() {
     <ThemedView type="backgroundElement" style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <ThemedText type="label" themeColor="accent">
+          <ThemedText type="label" themeColor="accentInk">
             {upcoming.length === 0 ? 'Nothing booked' : `${upcoming.length} coming up`}
           </ThemedText>
           <ThemedText type="title">My Matches</ThemedText>
@@ -215,7 +165,7 @@ export default function MatchesScreen() {
         </View>
 
         {isLoading ? (
-          <ActivityIndicator style={styles.centered} />
+          <ActivityIndicator style={styles.spinner} />
         ) : (
           <SectionList
             sections={sections}
@@ -244,9 +194,12 @@ export default function MatchesScreen() {
             contentContainerStyle={styles.listContent}
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={
-              <ThemedText style={styles.centered} themeColor="textSecondary">
-                {error ?? 'No matches yet. Join one from Browse to get started.'}
-              </ThemedText>
+              <View style={styles.empty}>
+                <Ribbon width={120} height={160} opacity={0.5} />
+                <ThemedText style={styles.centered} themeColor="textSecondary">
+                  {error ?? 'No matches yet. Join one from Browse to get started.'}
+                </ThemedText>
+              </View>
             }
             stickySectionHeadersEnabled={false}
           />
@@ -299,10 +252,6 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 2,
   },
-  divider: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginVertical: Spacing.one,
-  },
   listContent: {
     paddingHorizontal: Spacing.four,
     paddingBottom: BottomTabInset + Spacing.four,
@@ -316,24 +265,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
   },
-  /**
-   * Square and 34px: small enough that three of them sit in a card's bottom row
-   * at phone width, large enough to hit. Below the 44px ideal, which is the
-   * trade for keeping the card short.
-   */
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: Spacing.two,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
   centered: {
-    marginTop: Spacing.six,
     textAlign: 'center',
+  },
+  spinner: {
+    marginTop: Spacing.six,
+  },
+  empty: {
+    marginTop: Spacing.five,
+    alignItems: 'center',
+    gap: Spacing.two,
   },
 });

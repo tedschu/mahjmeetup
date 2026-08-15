@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { MinPlaceQuery, searchPlaces, type PlaceKind, type PlaceSuggestion } from '@/lib/places';
 
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   input: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
+    borderRadius: Radius.small,
     // Bordered rather than relying on a fill, so the same field reads as a field
     // on a white sheet and on the tinted page behind the screens.
     borderWidth: StyleSheet.hairlineWidth,
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     right: Spacing.three,
   },
   suggestions: {
-    borderRadius: Spacing.two,
+    borderRadius: Radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
