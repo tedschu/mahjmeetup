@@ -46,8 +46,10 @@ create policy "Members manage their own contact details."
   using (profile_id = (select auth.uid()))
   with check (profile_id = (select auth.uid()));
 
--- Not granted to `anon`, unlike profiles. There is no signed-out screen that needs
--- a phone number.
+-- NOTE: this grant does less than it looks like. Supabase's default privileges
+-- already grant all DML on new public tables to both `anon` and `authenticated`,
+-- so anon arrives with access here too and only RLS keeps it out. Corrected in
+-- 20260815234500, which revokes anon properly. Left as written because it ran.
 grant select, insert, update on public.profile_contacts to authenticated;
 
 comment on table public.profile_contacts is
