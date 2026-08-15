@@ -37,33 +37,40 @@ const StrokeWidth = 30;
  * First and last points sit outside the frame so both ends are clipped, which is
  * what makes it read as a length of something rather than a shape with two ends.
  */
-const Frame = { width: 560, height: 1000 } as const;
+const Frame = { width: 360, height: 1000 } as const;
 
+/**
+ * One long S down the left, both ends running off the frame.
+ *
+ * Traced from the reference: the ribbon enters through the top of a narrow band on the
+ * left, swells out to the right at roughly a third of the way down, then turns back
+ * and tails away off the bottom-left. It never crosses to the middle of the page —
+ * earlier versions swept inward and finished under the form, which put it behind the
+ * content it is supposed to sit beside.
+ */
 const Course: readonly { x: number; y: number; width: number }[] = [
-  // Above the top edge, near the middle — enters already in motion.
-  { x: 372, y: -110, width: 54 },
-  { x: 258, y: 145, width: 56 },
-  // Swings back out before committing left. The counter-swells are what make it read
-  // as undulating rather than as one long diagonal, and they need this much vertical
-  // room between them — crowd them and the spline turns them into corners.
-  { x: 328, y: 352, width: 52 },
-  { x: 142, y: 502, width: 56 },
-  // The far left, at half height — the middle of the three anchors.
-  { x: 40, y: 612, width: 58 },
-  { x: 186, y: 764, width: 50 },
-  // One more weave before the tail turns for the middle.
-  { x: 120, y: 872, width: 42 },
-  { x: 302, y: 950, width: 30 },
-  { x: 452, y: 986, width: 14 },
+  // Above the top edge, toward the right of the band — enters already in motion.
+  { x: 300, y: -110, width: 60 },
+  { x: 214, y: 152, width: 64 },
   /*
-   * The tail, narrowing almost to nothing and running level.
-   *
-   * It ends inside the frame on purpose. An earlier course ran off the right edge,
-   * and because this artwork is stretched into a box only part of the page wide, "off
-   * the edge" meant a hard vertical cut across the middle of the screen. A ribbon can
-   * run out of frame or it can taper away; what it cannot do is stop.
+   * The swell, about a third down. This is the only counter-turn, and it needs the
+   * vertical room it has: crowd two of them together and the spline reads them as
+   * corners rather than curves, however it is parameterised.
    */
-  { x: 546, y: 996, width: 4 },
+  { x: 286, y: 374, width: 60 },
+  { x: 168, y: 598, width: 54 },
+  { x: 92, y: 768, width: 42 },
+  { x: 16, y: 894, width: 26 },
+  /*
+   * The tail, off the bottom-left corner and narrowed almost to nothing.
+   *
+   * Tapered rather than simply run out of frame. Because this artwork is stretched
+   * into a box only part of the page wide, an end that leaves through the side of the
+   * frame is a hard cut somewhere in the middle of the screen — so the width has to
+   * come down to nothing before it gets there. A ribbon can run out of frame or it
+   * can taper away; what it cannot do is stop.
+   */
+  { x: -64, y: 986, width: 6 },
 ] as const;
 
 
@@ -308,12 +315,12 @@ export function Ribbon({
 export function EdgeRibbon({
   opacity = 0.85,
   /**
-   * How far across the page the ribbon's travel reaches, as the width of the box it
-   * is stretched into. The sweep ends near the far edge of that box, so this is
-   * effectively where the ribbon finishes: at 62% it lands just short of centre,
-   * under the content rather than beside it.
+   * The width of the band the ribbon lives in, as a share of the page.
+   *
+   * Narrow on purpose: the ribbon belongs down one side, beside the content rather
+   * than behind it. At 62% — where this started — the tail finished under the form.
    */
-  reach = '62%',
+  reach = '34%',
 }: {
   opacity?: number;
   reach?: `${number}%`;
