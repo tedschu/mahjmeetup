@@ -47,6 +47,11 @@
 .support-card{background:#fff;border:1px solid var(--line);border-radius:24px;padding:24px;margin:18px 0;box-shadow:0 10px 30px rgba(18,25,59,.04)}
 .support-card h3{margin-bottom:8px;color:var(--navy)}
 .support-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+/* Only when text follows the button, which is the two-step home screen card. The
+   global `p{margin-top:0}` meets a button group with no bottom margin, so "Step 2"
+   sat flush against the button. Scoped this way so the card where the button is the
+   last child keeps its spacing. */
+.support-actions + p{margin-top:18px}
 .small-btn{display:inline-flex;padding:11px 16px;border-radius:999px;border:1px solid var(--teal);color:var(--teal);font-weight:600}
 /* White fill inside a 1.5px gradient ring, matching the app's GradientButton and
    the buttons on index.html. Was a filled gradient, which is the treatment the app
@@ -77,9 +82,14 @@
 <div class="support-card">
   <h3>Add Seven Bam to your phone</h3>
   <p>Seven Bam runs in your phone's browser, and you can put it on your home screen so it opens in a single tap — no app store, nothing to install, nothing to update.</p>
-  <p><strong>iPhone or iPad</strong><br/>Open Seven Bam in Safari, tap the Share button at the bottom of the screen, scroll down, and choose <strong>Add to Home Screen</strong>. Tap Add.</p>
-  <p><strong>Android</strong><br/>Open Seven Bam in Chrome, tap the three-dot menu in the top right, and choose <strong>Add to Home screen</strong>. Tap Add.</p>
-  <p>You stay signed in, so tapping the icon takes you straight to your matches.</p>
+  <p><strong>Step 1 — open the app first.</strong><br/>Tap <strong>Sign In / Create Account</strong> below. This matters: your home screen saves whatever page you are looking at, so adding it from this support page would save the website instead of the app.</p>
+  <div class="support-actions">
+    <a class="small-btn primary" href="https://tschusters-team-mahjong.expo.app" target="_blank" rel="noopener">Sign In / Create Account</a>
+  </div>
+  <p><strong>Step 2 — add that page to your home screen.</strong></p>
+  <p><strong>iPhone or iPad</strong><br/>In Safari, tap the Share button at the bottom of the screen, scroll down, and choose <strong>Add to Home Screen</strong>. Tap Add.</p>
+  <p><strong>Android</strong><br/>In Chrome, tap the three-dot menu in the top right, and choose <strong>Add to Home screen</strong>. Tap Add.</p>
+  <p>You stay signed in, so tapping the new icon takes you straight to your matches.</p>
 </div>
 
 <div class="support-card">
