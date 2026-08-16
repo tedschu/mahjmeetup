@@ -61,9 +61,16 @@ They were mispaired when this site was first produced — every tab showed the
 previous tab's screen — so if you add or reorder tabs, open the images and check,
 rather than trusting their order in the file.
 
-**There is no Profile tab.** No screenshot of that screen exists. Add one to
-`assets/` and a fifth `.tour-tab` (plus a fifth dot in `.tour-dots`) if you want it
-back.
+**The tour is four tabs, and that is a decision rather than a gap.** The site as
+first produced had five, but only four real screens were ever captured — the fifth
+image was the login screen, which belongs to no tab and shows the superseded
+"Make connections." tagline. Profile was cut rather than illustrated with a
+stand-in: it is a settings form, and a tour of Browse, Matches, Leagues and
+Rankings is tighter than one whose last stop is a phone number field.
+
+If it ever earns a place back, it needs a real screenshot at roughly 950×1330 in
+`assets/`, a fifth `.tour-tab`, and a fifth dot in `.tour-dots` — the dot count is
+not derived from the tabs, so the two have to be kept in step by hand.
 
 **The logo is a 1024×1024 PNG shown at 44px.** 424 KB for the largest asset on the
 page. Worth resizing, and generating a real favicon, if page weight matters.
