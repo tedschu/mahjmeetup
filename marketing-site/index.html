@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Seven Bam — Your next game starts here</title>
+  <meta name="description" content="Seven Bam makes it easy to find local American Mahjong games, meet players, join leagues and matches, and play more" />
+  <link rel="canonical" href="https://sevenbam.com/" />
+  <meta property="og:title" content="Seven Bam — Your next game starts here" />
+  <meta property="og:description" content="Find games. Meet players. Play more." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://sevenbam.com/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="assets/logo.png" />
+<style>
+:root{--teal:#2FB7A6;--aqua:#66D3B6;--lime:#C7D84A;--yellow:#FFD44D;--orange:#FFA35A;--coral:#FF7D72;--purple:#6A58E5;--navy:#12193B;--text:#2B3350;--muted:#6A728B;--line:#E9EDF4;--gradient:linear-gradient(90deg,var(--teal) 0%,var(--lime) 28%,var(--yellow) 52%,var(--orange) 76%,var(--coral) 100%)}
+*{box-sizing:border-box}body{margin:0;font-family:"Poppins",system-ui,-apple-system,sans-serif;color:var(--text);background:linear-gradient(180deg,#fff 0%,#fcfcfd 100%);line-height:1.6}img{max-width:100%;display:block}a{text-decoration:none;color:inherit}.container{width:min(1180px,calc(100% - 40px));margin:0 auto}
+.site-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.86);backdrop-filter:blur(16px);border-bottom:1px solid rgba(233,237,244,.8)}.nav-wrap{height:86px;display:flex;align-items:center;justify-content:space-between;gap:24px}.brand{display:flex;align-items:center;gap:12px}.brand img{width:44px;height:44px;object-fit:contain}.brand span{font-weight:700;letter-spacing:.02em;font-size:1.2rem;color:var(--navy)}nav{display:flex;gap:28px;font-weight:500;color:#44506c}nav a:hover{color:var(--teal)}
+.button{display:inline-flex;align-items:center;justify-content:center;padding:14px 24px;border-radius:999px;font-weight:600}.button-small{padding:11px 20px}/* The app's primary button: a flat white surface inside a thin gradient ring, not
+   a gradient fill. Matching it here rather than inverting it there, because the
+   app made this choice for a contrast reason — a filled gradient forces the label
+   dark, and white type over the gradient's #ffd44d midpoint is 1.4:1.
+   Two backgrounds is the only way to put a gradient on a border: the white is
+   clipped to the padding box, the gradient to the border box, so the ring is the
+   1.5px the app uses. The orange drop shadow goes with the fill it was tuned for;
+   the app has none. */
+.button-gradient{border:1.5px solid transparent;border-radius:999px;background:linear-gradient(#fff,#fff) padding-box,var(--gradient) border-box;color:var(--navy)}
+.hero{position:relative;overflow:hidden;padding:64px 0 48px}.bg-glow{position:absolute;border-radius:50%;filter:blur(10px);opacity:.28;pointer-events:none}.glow-a{width:360px;height:360px;background:radial-gradient(circle,var(--teal),transparent 70%);left:-120px;bottom:-80px}.glow-b{width:420px;height:420px;background:radial-gradient(circle,var(--yellow),transparent 70%);right:-150px;top:-100px}.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;position:relative;z-index:2}.eyebrow{color:var(--teal);font-weight:700;font-size:.78rem;letter-spacing:.15em;margin-bottom:16px}h1,h2,h3,h4,p{margin-top:0}h1{font-size:clamp(3rem,6vw,5.2rem);line-height:1.02;letter-spacing:-.05em;color:var(--navy);margin-bottom:18px;max-width:720px}.rainbow{background:var(--gradient);-webkit-background-clip:text;background-clip:text;color:transparent}.functional-line{font-size:1.8rem;font-weight:500;color:var(--navy);margin-bottom:10px}.hero-text{font-size:1.05rem;color:#55607a;max-width:640px}.cta-row{display:flex;gap:16px;flex-wrap:wrap;margin:30px 0 0}.store-btn{display:flex;align-items:center;gap:12px;background:var(--navy);color:#fff;padding:11px 18px;border-radius:15px;box-shadow:0 14px 34px rgba(18,25,59,.14)}.store-btn small{display:block;font-size:.58rem;line-height:1.2}.store-btn strong{display:block;font-size:1.08rem;line-height:1.2}.store-icon{font-size:1.7rem;line-height:1}.play-icon{width:0;height:0;border-top:13px solid transparent;border-bottom:13px solid transparent;border-left:20px solid var(--teal);filter:drop-shadow(7px 0 0 var(--yellow))}
+.hero-collage{position:relative;min-height:620px}.hero-panel{position:absolute;background:#fff;border:1px solid var(--line);border-radius:30px;box-shadow:0 22px 50px rgba(18,25,59,.10)}.logo-panel{left:30px;top:40px;width:210px;height:210px;display:grid;place-items:center}.logo-panel img{width:138px;height:138px;object-fit:contain}.game-panel{right:18px;top:10px;width:330px;padding:24px}.league-panel{left:0;bottom:110px;width:320px;padding:24px}.score-panel{right:40px;bottom:24px;width:260px;padding:22px}.panel-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.mini-kicker{font-size:.72rem;font-weight:700;letter-spacing:.12em;color:var(--teal)}.mini-pill{font-size:.72rem;font-weight:600;padding:7px 11px;border-radius:999px;background:#EDF9F6;color:var(--teal)}.mini-pill.alt{background:#FFF7E8;color:#C49318}.hero-panel h3{font-size:1.45rem;line-height:1.1;letter-spacing:-.03em;color:var(--navy);margin-bottom:8px}.hero-panel p{color:#69728A;font-size:.92rem;margin-bottom:12px}.meta-row{display:flex;justify-content:space-between;gap:16px;font-size:.82rem}.meta-row span{color:#69728A}.meta-row strong{color:var(--purple)}.bars{display:flex;gap:8px;margin-top:14px}.bars span{display:block;height:10px;border-radius:999px;background:var(--gradient)}.bars span:nth-child(1){width:38%}.bars span:nth-child(2){width:56%}.bars span:nth-child(3){width:26%}.score-head{font-size:.72rem;font-weight:700;letter-spacing:.12em;color:var(--orange);margin-bottom:12px}.score-row{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.score-row:last-child{border-bottom:0}.score-row span{font-weight:600;color:var(--navy)}.score-row small{font-weight:700;color:#6b7390}.hero-float{position:absolute;padding:10px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);box-shadow:0 10px 28px rgba(18,25,59,.10);font-size:.82rem;font-weight:600}.float-a{left:210px;top:0;color:var(--teal)}.float-b{right:0;top:190px;color:var(--orange)}.float-c{left:80px;bottom:30px;color:var(--purple)}
+.story-band{background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:54px 0;text-align:center}.story-band h2{font-size:2.2rem;color:var(--navy);margin-bottom:10px;letter-spacing:-.03em}.story-band p{max-width:760px;margin:0 auto;color:#616A84}
+.section{padding:90px 0}.soft{background:linear-gradient(180deg,#FCFDFE 0%,#F8FAFC 100%)}.section-head{max-width:920px;margin-bottom:42px}.section-head.centered{text-align:center;margin-left:auto;margin-right:auto}.section-head h2{font-size:clamp(2rem,4vw,3.2rem);line-height:1.08;letter-spacing:-.035em;color:var(--navy);margin-bottom:12px}.section-head p{color:#667089}
+.cards{display:grid;gap:20px}.four-up{grid-template-columns:repeat(4,1fr)}.three-up{grid-template-columns:repeat(3,1fr)}.card{background:#fff;border:1px solid var(--line);border-radius:26px;padding:28px;box-shadow:0 10px 30px rgba(18,25,59,.04)}.semantic-icon{width:56px;height:56px;display:grid;place-items:center;margin-bottom:16px}.semantic-icon svg{width:46px;height:46px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}.teal{color:var(--teal)}.orange{color:var(--orange)}.aqua{color:var(--aqua)}.yellow{color:#D9A400}.coral{color:var(--coral)}.card h3{color:var(--navy);margin-bottom:8px}.card p{color:#667089;margin:0}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}.step{text-align:center;background:#fff;border:1px solid var(--line);border-radius:24px;padding:30px 20px}.ring{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;margin:0 auto 16px;background:#fff;color:var(--navy);font-size:1.1rem;border:3px solid var(--teal)}.ring1{border-color:var(--teal)}.ring2{border-color:var(--yellow)}.ring3{border-color:var(--orange)}.ring4{border-color:var(--purple)}.step h3{color:var(--navy);margin-bottom:6px}.step p{color:#6A728B;margin:0}
+.preview-section{background:linear-gradient(180deg,#fff 0%,#fbfcfe 100%)}.preview-head{margin-bottom:28px}.product-tour{background:#fff;border:1px solid var(--line);border-radius:34px;padding:20px;box-shadow:0 18px 50px rgba(18,25,59,.06)}.tour-tabs{display:flex;gap:10px;padding:6px;background:#F7F9FC;border-radius:20px;overflow-x:auto}.tour-tab{appearance:none;border:0;background:transparent;color:#6B7388;font:600 .9rem Poppins;padding:12px 18px;border-radius:15px;cursor:pointer;white-space:nowrap}.tour-tab:hover{color:var(--navy)}.tour-tab.active{background:#fff;color:var(--navy);box-shadow:0 6px 18px rgba(18,25,59,.08)}.tour-stage{display:grid;grid-template-columns:.78fr 1.22fr;gap:34px;align-items:center;padding:44px 26px 28px}.tour-copy{padding:10px 12px 10px 10px}.tour-label{font-size:.72rem;font-weight:700;letter-spacing:.13em;color:var(--teal)}.tour-copy h3{font-size:2.4rem;line-height:1.08;letter-spacing:-.035em;color:var(--navy);margin:12px 0 14px}.tour-copy p{color:#626C85;font-size:1rem;max-width:430px}.tour-detail{display:flex;align-items:center;gap:9px;margin-top:24px;color:#7A8297;font-size:.82rem}.tour-detail span{width:9px;height:9px;border-radius:50%;background:var(--teal)}.tour-image-wrap{position:relative;border-radius:30px;padding:24px 24px 0;background:linear-gradient(135deg,#f8fbfb,#f6f7fb);overflow:hidden;min-height:520px}.tour-image-wrap:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 90% 15%,rgba(255,255,255,.9),transparent 36%)}.tour-image-wrap:after{content:"";position:absolute;left:0;top:0;width:7px;height:100%;background:var(--teal)}.accent-orange:after{background:var(--orange)}.accent-lime:after{background:var(--lime)}.accent-purple:after{background:var(--purple)}.accent-aqua:after{background:var(--aqua)}.tour-image-inner{position:relative;z-index:1;width:min(440px,90%);margin:0 auto;background:#fff;border-radius:34px 34px 0 0;padding:12px 12px 0;box-shadow:0 22px 55px rgba(18,25,59,.13);transform:translateY(2px)}.tour-image-inner img{width:100%;border-radius:24px 24px 0 0;transition:opacity .18s ease}.tour-image-inner img.fade{opacity:0}.tour-dots{display:flex;justify-content:center;gap:8px;padding:0 0 12px}.tour-dots span{width:7px;height:7px;border-radius:50%;background:#DDE2EB}.tour-dots span.active{width:22px;border-radius:99px;background:var(--gradient)}
+.faq-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:50px}.faq-list{border-top:1px solid var(--line)}details{border-bottom:1px solid var(--line);padding:18px 0}summary{font-weight:600;cursor:pointer;list-style:none;color:var(--navy)}summary::-webkit-details-marker{display:none}details p{margin:10px 0 0;color:#667089}
+.final-cta{padding:54px 0;background:linear-gradient(90deg,#F3FBF9 0%,#FFF9EE 55%,#FFF4F2 100%);border-top:1px solid var(--line)}.final-grid{display:grid;grid-template-columns:84px 1fr auto;gap:28px;align-items:center}.final-grid img{width:70px;height:70px;object-fit:contain}.final-grid h2{font-size:2.2rem;color:var(--navy);margin-bottom:8px}.final-grid p{margin:0;color:#667089}
+.footer{padding:30px 0;border-top:1px solid var(--line);background:#fff}.footer-grid{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center}.footer-brand{display:flex;align-items:center;gap:14px}.footer-brand img{width:40px;height:40px;object-fit:contain}.footer-brand strong{display:block;color:var(--navy)}.footer-brand span{display:block;font-size:.82rem;color:#6D7590}.footer-links{display:flex;gap:18px;flex-wrap:wrap;color:#5F6880;font-size:.9rem}
+@media(max-width:1150px){.hero-grid,.faq-grid,.tour-stage{grid-template-columns:1fr}.four-up{grid-template-columns:repeat(2,1fr)}.three-up{grid-template-columns:1fr}.steps{grid-template-columns:repeat(2,1fr)}.hero-collage{min-height:680px}.tour-copy{padding:20px 12px 0}.tour-image-wrap{min-height:480px}}
+@media(max-width:760px){nav{display:none}.container{width:min(100% - 26px,1180px)}.nav-wrap{height:76px}.brand img{width:40px;height:40px}.button-small{display:none}h1{font-size:3rem}.functional-line{font-size:1.25rem}.four-up,.steps{grid-template-columns:1fr}.final-grid{grid-template-columns:70px 1fr}.final-grid .button{grid-column:2}.footer-grid{grid-template-columns:1fr}.hero-collage{min-height:auto;padding-bottom:20px}.logo-panel,.game-panel,.league-panel,.score-panel,.hero-float{position:relative;left:auto;right:auto;top:auto;bottom:auto;margin-bottom:16px;width:auto}.product-tour{padding:12px}.tour-stage{padding:28px 8px 12px}.tour-copy h3{font-size:1.9rem}.tour-image-wrap{padding:16px 12px 0;min-height:420px}.tour-tabs{border-radius:16px}.tour-tab{padding:10px 14px}}
+
+.hero-primary{min-width:230px}
+.coming-soon{
+  display:inline-flex;align-items:center;padding:0 6px;
+  color:#7a8297;font-size:.9rem;font-weight:500
+}
+@media(max-width:760px){
+  .coming-soon{width:100%;padding-top:4px}
+}
+
+</style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a class="brand" href="#top" aria-label="Seven Bam home">
+        <img src="assets/logo.png" alt="Seven Bam logo mark" />
+        <span>SEVEN BAM</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#how">How it Works</a>
+        <a href="#features">Features</a>
+        <a href="#preview">Preview</a>
+        <a href="#community">Community</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="button button-gradient button-small" href="https://tschusters-team-mahjong.expo.app" target="_blank" rel="noopener">Sign In / Create Account</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="bg-glow glow-a"></div>
+      <div class="bg-glow glow-b"></div>
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <div class="eyebrow">LOCAL AMERICAN MAHJONG, MADE EASIER</div>
+          <h1>Your next game starts <span class="rainbow">here</span></h1>
+          <p class="functional-line">Find games. Meet players. Play more.</p>
+          <p class="hero-text">
+            Find local Mahjong games, join leagues and matches, and connect with players nearby.
+            Whether you are looking for a social table, a standing game, or your next league,
+            Seven Bam helps you play more with good people close to home.
+          </p>
+          <div class="cta-row" id="download">
+            <a class="button button-gradient hero-primary" href="https://tschusters-team-mahjong.expo.app" target="_blank" rel="noopener">Sign In / Create Account</a>
+            <span class="coming-soon">Mobile app coming soon</span>
+          </div>
+        </div>
+
+        <div class="hero-collage">
+          <div class="hero-panel logo-panel"><img src="assets/logo.png" alt="Seven Bam logo" /></div>
+          <div class="hero-panel game-panel">
+            <div class="panel-top"><span class="mini-kicker">BROWSE</span><span class="mini-pill">2 open seats</span></div>
+            <h3>Geneva Public Library District</h3><p>Fri, Aug 21 · 7:00 PM CDT</p>
+            <div class="meta-row"><span>Tiles provided</span><strong>You’re in</strong></div>
+          </div>
+          <div class="hero-panel league-panel">
+            <div class="panel-top"><span class="mini-kicker">LEAGUE</span><span class="mini-pill alt">Season 1</span></div>
+            <h3>Fox Valley Mahjsters</h3><p>Standings, meetups, and members in one place</p>
+            <div class="bars"><span></span><span></span><span></span></div>
+          </div>
+          <div class="hero-panel score-panel">
+            <div class="score-head">LEADERBOARD</div>
+            <div class="score-row"><b>1</b><span>April Lane</span><small>42</small></div>
+            <div class="score-row"><b>2</b><span>Ted Schuster</span><small>38</small></div>
+            <div class="score-row"><b>3</b><span>Jamie Fox</span><small>34</small></div>
+          </div>
+          <div class="hero-float float-a">Open seats</div><div class="hero-float float-b">Matches</div><div class="hero-float float-c">Leagues</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="story-band">
+      <div class="container">
+        <h2>Great games start with good people</h2>
+        <p>Seven Bam is built for the social side of Mahjong — the friends you already play with, the new players you want to meet, and the local games that bring people together</p>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section-head">
+          <div class="eyebrow">FEATURES</div>
+          <h2>Make finding and organizing games simple</h2>
+          <p>Seven Bam keeps local play, scheduling, leagues, and player connection all in one place</p>
+        </div>
+        <div class="cards four-up">
+          <article class="card">
+            <div class="semantic-icon teal"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 42s12-10.6 12-23A12 12 0 1 0 12 19c0 12.4 12 23 12 23Z"/><circle cx="24" cy="19" r="4.5"/></svg></div>
+            <h3>Find local games</h3>
+            <p>Browse nearby games and open seats so it is easier to find something that fits your schedule</p>
+          </article>
+          <article class="card">
+            <div class="semantic-icon orange"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="10" width="34" height="31" rx="6"/><path d="M15 6v8M33 6v8M7 18h34M24 24v11M18.5 29.5h11"/></svg></div>
+            <h3>Create and host</h3>
+            <p>Post your own game with the date, time, and location, then let players join in</p>
+          </article>
+          <article class="card">
+            <div class="semantic-icon yellow"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 8h16v8c0 8-3.6 13-8 13s-8-5-8-13V8Z"/><path d="M16 12H9c0 7 3 11 9 11M32 12h7c0 7-3 11-9 11M24 29v7M17 41h14M20 36h8"/></svg></div>
+            <h3>Join leagues & matches</h3>
+            <p>Keep up with recurring games, league schedules, standings, and community play</p>
+          </article>
+          <article class="card">
+            <div class="semantic-icon aqua"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="18" cy="17" r="6"/><circle cx="32" cy="19" r="5"/><path d="M7 39c1-8 5-12 11-12s10 4 11 12M28 30c6-1 11 2 13 9"/></svg></div>
+            <h3>Meet players</h3>
+            <p>Connect with friendly players in your area and build a stronger local Mahjong community</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section soft" id="how">
+      <div class="container">
+        <div class="section-head centered">
+          <div class="eyebrow">HOW IT WORKS</div>
+          <h2>Four simple steps</h2>
+        </div>
+        <div class="steps">
+          <div class="step"><b class="ring ring1">1</b><h3>Browse</h3><p>Explore local games, leagues, and open seats near you</p></div>
+          <div class="step"><b class="ring ring2">2</b><h3>Join</h3><p>Choose a game that works for your day, time, and location</p></div>
+          <div class="step"><b class="ring ring3">3</b><h3>Play</h3><p>Show up, enjoy the game, and upload scores when the match is done</p></div>
+          <div class="step"><b class="ring ring4">4</b><h3>Come back</h3><p>Track results, follow the leaderboard, and find your next game even faster</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section preview-section" id="preview">
+      <div class="container">
+        <div class="section-head preview-head">
+          <div class="eyebrow">SEE IT IN ACTION</div>
+          <h2>One app, every part of the game</h2>
+          <p>Tap through the parts of Seven Bam you’ll use most</p>
+        </div>
+
+        <div class="product-tour">
+          <div class="tour-tabs" role="tablist" aria-label="Seven Bam app screens">
+            <button class="tour-tab active" data-screen="screen-browse.png" data-title="Find a table near you" data-copy="Browse open games, see who is playing, and quickly tell whether a seat is available" data-accent="teal">Browse</button>
+            <button class="tour-tab" data-screen="screen-matches.png" data-title="Keep every match in one place" data-copy="See what is coming up, what you are hosting, and the games you have already played" data-accent="orange">Matches</button>
+            <button class="tour-tab" data-screen="screen-leagues.png" data-title="Stay connected to your leagues" data-copy="See your leagues, join a new one, and keep season information easy to find" data-accent="lime">Leagues</button>
+            <button class="tour-tab" data-screen="screen-rankings.png" data-title="See where you stand" data-copy="Upload results and follow rankings as games are completed" data-accent="purple">Rankings</button>
+          </div>
+
+          <div class="tour-stage">
+            <div class="tour-copy">
+              <span class="tour-label">BROWSE</span>
+              <h3 id="tourTitle">Find a table near you</h3>
+              <p id="tourCopy">Browse open games, see who is playing, and quickly tell whether a seat is available</p>
+              <div class="tour-detail"><span></span> Real Seven Bam app screen</div>
+            </div>
+            <div class="tour-image-wrap accent-teal" id="tourFrame">
+              <div class="tour-image-inner">
+                <img id="tourImage" src="assets/screen-browse.png" alt="Seven Bam Browse screen" />
+              </div>
+            </div>
+          </div>
+
+          <div class="tour-dots" aria-hidden="true">
+            <span class="active"></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="community">
+      <div class="container">
+        <div class="section-head">
+          <div class="eyebrow">COMMUNITY</div>
+          <h2>More than scheduling — it is a community</h2>
+        </div>
+        <div class="cards three-up">
+          <article class="card">
+            <div class="semantic-icon teal"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="15" cy="20" r="6"/><circle cx="33" cy="20" r="6"/><path d="M7 40c1-8 4-12 8-12s7 4 8 12M25 40c1-8 4-12 8-12s7 4 8 12M21 20h6"/></svg></div>
+            <h3>Find your people</h3>
+            <p>Connect with players who love the game as much as you do</p>
+          </article>
+          <article class="card">
+            <div class="semantic-icon yellow"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5c1 10 5 14 14 16-9 2-13 6-14 17-1-11-5-15-14-17 9-2 13-6 14-16Z"/><path d="M38 5v8M34 9h8"/></svg></div>
+            <h3>Play your way</h3>
+            <p>From social games to competitive leagues, there is a seat for you</p>
+          </article>
+          <article class="card">
+            <div class="semantic-icon coral"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M36 14H17c-6 0-10 4-10 10"/><path d="m31 9 5 5-5 5"/><path d="M12 34h19c6 0 10-4 10-10"/><path d="m17 39-5-5 5-5"/></svg></div>
+            <h3>Keep it going</h3>
+            <p>Regular games and league opportunities make it easier to keep playing</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section soft" id="faq">
+      <div class="container faq-grid">
+        <div class="section-head">
+          <div class="eyebrow">FAQ</div>
+          <h2>Frequently asked questions</h2>
+        </div>
+        <div class="faq-list">
+          <details open><summary>What is Seven Bam?</summary><p>Seven Bam is an app that helps players find local American Mahjong games, connect with other players, and manage leagues, matches, and open play</p></details>
+          <details><summary>Do I need to be in a league to use it?</summary><p>No. Seven Bam works for both social games and organized league play</p></details>
+          <details><summary>Can I create my own game?</summary><p>Yes. Hosts can post games, share details, and let other players join</p></details>
+          <details><summary>Is Seven Bam only for experienced players?</summary><p>No. It is for anyone who wants to find games, meet players, and play more</p></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="final-cta">
+      <div class="container final-grid">
+        <img src="assets/logo.png" alt="Seven Bam logo mark" />
+        <div><div class="eyebrow">READY TO PLAY?</div><h2>Your next game starts <span class="rainbow">here</span></h2><p>Use Seven Bam on the web now — sign in or create your account to get started</p></div>
+        <a class="button button-gradient" href="https://tschusters-team-mahjong.expo.app" target="_blank" rel="noopener">Sign In / Create Account</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div class="footer-brand"><img src="assets/logo.png" alt="" /><div><strong>SEVEN BAM</strong><span>Find games. Meet players. Play more.</span></div></div>
+      <div class="footer-links"><a href="#how">How it Works</a><a href="#features">Features</a><a href="#preview">Preview</a><a href="#community">Community</a><a href="#faq">FAQ</a><a href="support.html">Support</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="delete-account.html">Delete Account</a></div>
+    </div>
+  </footer>
+
+  <script>
+    const tabs = document.querySelectorAll('.tour-tab');
+    const image = document.getElementById('tourImage');
+    const title = document.getElementById('tourTitle');
+    const copy = document.getElementById('tourCopy');
+    const label = document.querySelector('.tour-label');
+    const frame = document.getElementById('tourFrame');
+    const dots = document.querySelectorAll('.tour-dots span');
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        dots.forEach(d => d.classList.remove('active'));
+        tab.classList.add('active');
+        dots[index].classList.add('active');
+
+        image.classList.add('fade');
+        setTimeout(() => {
+          image.src = tab.dataset.screen.startsWith('data:') ? tab.dataset.screen : 'assets/' + tab.dataset.screen;
+          image.alt = 'Seven Bam ' + tab.textContent.trim() + ' screen';
+          title.textContent = tab.dataset.title;
+          copy.textContent = tab.dataset.copy;
+          label.textContent = tab.textContent.trim().toUpperCase();
+          frame.className = 'tour-image-wrap accent-' + tab.dataset.accent;
+          image.classList.remove('fade');
+        }, 140);
+      });
+    });
+  </script>
+</body>
+</html>

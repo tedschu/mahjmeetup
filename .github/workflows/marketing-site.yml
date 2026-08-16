@@ -1,0 +1,58 @@
+# Publishes marketing-site/ to GitHub Pages.
+#
+# The Expo app is deployed separately by `eas deploy` and is not touched here.
+# This repo therefore has two independent deploy targets, which is the reason for
+# the `paths` filter below: without it every app commit would redeploy the
+# marketing site, and every marketing commit would look like an app release.
+#
+# Pages can natively serve only a repo's root or /docs from a branch, and /docs is
+# already the PRD. Publishing any other directory means going through Actions,
+# which is what this is — `upload-pages-artifact` takes the directory as `path`.
+#
+# Note there is deliberately no CNAME file anywhere. With Actions-based publishing
+# GitHub ignores one, and the custom domain lives in the repo's Pages settings
+# instead. Most guides tell you to commit a CNAME; here it would do nothing.
+name: Deploy marketing site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'marketing-site/**'
+      - '.github/workflows/marketing-site.yml'
+  # So the site can be republished without a commit — useful the first time, before
+  # anything under marketing-site/ has changed.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Both are required by deploy-pages: it writes a deployment and authenticates
+  # with an OIDC token rather than a PAT.
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel one midway — a cancelled Pages deploy
+# can leave the site on a half-published version.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/configure-pages@v6
+
+      # Nothing to build: the site is plain HTML with no toolchain, which is the
+      # whole reason it is a separate target rather than part of the Expo export.
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: marketing-site
+
+      - id: deployment
+        uses: actions/deploy-pages@v5
