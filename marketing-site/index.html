@@ -15,8 +15,21 @@
 <style>
 :root{--teal:#2FB7A6;--aqua:#66D3B6;--lime:#C7D84A;--yellow:#FFD44D;--orange:#FFA35A;--coral:#FF7D72;--purple:#6A58E5;--navy:#12193B;--text:#2B3350;--muted:#6A728B;--line:#E9EDF4;--gradient:linear-gradient(90deg,var(--teal) 0%,var(--lime) 28%,var(--yellow) 52%,var(--orange) 76%,var(--coral) 100%)}
 *{box-sizing:border-box}body{margin:0;font-family:"Poppins",system-ui,-apple-system,sans-serif;color:var(--text);background:linear-gradient(180deg,#fff 0%,#fcfcfd 100%);line-height:1.6}img{max-width:100%;display:block}a{text-decoration:none;color:inherit}.container{width:min(1180px,calc(100% - 40px));margin:0 auto}
-.site-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.86);backdrop-filter:blur(16px);border-bottom:1px solid rgba(233,237,244,.8)}.nav-wrap{height:86px;display:flex;align-items:center;justify-content:space-between;gap:24px}.brand{display:flex;align-items:center;gap:12px}.brand img{width:44px;height:44px;object-fit:contain}.brand span{font-weight:700;letter-spacing:.02em;font-size:1.2rem;color:var(--navy)}nav{display:flex;gap:28px;font-weight:500;color:#44506c}nav a:hover{color:var(--teal)}
-.button{display:inline-flex;align-items:center;justify-content:center;padding:14px 24px;border-radius:999px;font-weight:600}.button-small{padding:11px 20px}/* The app's primary button: a flat white surface inside a thin gradient ring, not
+.site-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.86);backdrop-filter:blur(16px);border-bottom:1px solid rgba(233,237,244,.8)}/* min-height, not height. A fixed 86px could not contain the wordmark and the
+   button once they wrapped, so they spilled out and the page scrolled visibly
+   behind the header. Nothing should wrap now, but a header that grows is a far
+   better failure than one that is overlapped. */
+.nav-wrap{min-height:86px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:nowrap}
+/* The brand and the CTA hold their size; the nav in the middle is what gives way.
+   Without this flexbox shrinks all three at once, which is what turned "SEVEN BAM"
+   into two lines and "Sign In / Create Account" into three. */
+.brand{display:flex;align-items:center;gap:12px;flex-shrink:0}.brand img{width:44px;height:44px;object-fit:contain}.brand span{font-weight:700;letter-spacing:.02em;font-size:1.2rem;color:var(--navy);white-space:nowrap}nav{display:flex;gap:28px;font-weight:500;color:#44506c;min-width:0}nav a:hover{color:var(--teal)}
+/* A button's label never wraps, and a button never shrinks below its content.
+   Both are why the header CTA collapsed into a three-line lozenge. */
+.button{display:inline-flex;align-items:center;justify-content:center;padding:14px 24px;border-radius:999px;font-weight:600;white-space:nowrap;flex-shrink:0}.button-small{padding:11px 20px}
+/* The CTA carries two labels and shows one, swapped by media query rather than by
+   script: the full invitation where there is room, a short one on a phone. */
+.label-short{display:none}/* The app's primary button: a flat white surface inside a thin gradient ring, not
    a gradient fill. Matching it here rather than inverting it there, because the
    app made this choice for a contrast reason — a filled gradient forces the label
    dark, and white type over the gradient's #ffd44d midpoint is 1.4:1.
@@ -36,7 +49,16 @@
 .final-cta{padding:54px 0;background:linear-gradient(90deg,#F3FBF9 0%,#FFF9EE 55%,#FFF4F2 100%);border-top:1px solid var(--line)}.final-grid{display:grid;grid-template-columns:84px 1fr auto;gap:28px;align-items:center}.final-grid img{width:70px;height:70px;object-fit:contain}.final-grid h2{font-size:2.2rem;color:var(--navy);margin-bottom:8px}.final-grid p{margin:0;color:#667089}
 .footer{padding:30px 0;border-top:1px solid var(--line);background:#fff}.footer-grid{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center}.footer-brand{display:flex;align-items:center;gap:14px}.footer-brand img{width:40px;height:40px;object-fit:contain}.footer-brand strong{display:block;color:var(--navy)}.footer-brand span{display:block;font-size:.82rem;color:#6D7590}.footer-links{display:flex;gap:18px;flex-wrap:wrap;color:#5F6880;font-size:.9rem}
 @media(max-width:1150px){.hero-grid,.faq-grid,.tour-stage{grid-template-columns:1fr}.four-up{grid-template-columns:repeat(2,1fr)}.three-up{grid-template-columns:1fr}.steps{grid-template-columns:repeat(2,1fr)}.hero-collage{min-height:680px}.tour-copy{padding:20px 12px 0}.tour-image-wrap{min-height:480px}}
-@media(max-width:760px){nav{display:none}.container{width:min(100% - 26px,1180px)}.nav-wrap{height:76px}.brand img{width:40px;height:40px}.button-small{display:none}h1{font-size:3rem}.functional-line{font-size:1.25rem}.four-up,.steps{grid-template-columns:1fr}.final-grid{grid-template-columns:70px 1fr}.final-grid .button{grid-column:2}.footer-grid{grid-template-columns:1fr}.hero-collage{min-height:auto;padding-bottom:20px}.logo-panel,.game-panel,.league-panel,.score-panel,.hero-float{position:relative;left:auto;right:auto;top:auto;bottom:auto;margin-bottom:16px;width:auto}.product-tour{padding:12px}.tour-stage{padding:28px 8px 12px}.tour-copy h3{font-size:1.9rem}.tour-image-wrap{padding:16px 12px 0;min-height:420px}.tour-tabs{border-radius:16px}.tour-tab{padding:10px 14px}}
+/* The nav gives way before anything has to compress. Below roughly this width the
+   three header items cannot all sit at their natural size, and the anchors are the
+   expendable part on a single-page site — everything they point at is still
+   reachable by scrolling. The alternative was a hamburger: a menu, a script and a
+   focus trap, for five links. */
+@media(max-width:1000px){nav{display:none}}
+/* The CTA used to be `display:none` here, so the one action the page exists to
+   drive was missing from the header on every phone. It stays, slightly tighter and
+   under its short label. */
+@media(max-width:760px){nav{display:none}.container{width:min(100% - 26px,1180px)}.nav-wrap{min-height:76px}.brand img{width:40px;height:40px}.button-small{padding:9px 16px;font-size:.94rem}.label-full{display:none}.label-short{display:inline}h1{font-size:3rem}.functional-line{font-size:1.25rem}.four-up,.steps{grid-template-columns:1fr}.final-grid{grid-template-columns:70px 1fr}.final-grid .button{grid-column:2}.footer-grid{grid-template-columns:1fr}.hero-collage{min-height:auto;padding-bottom:20px}.logo-panel,.game-panel,.league-panel,.score-panel,.hero-float{position:relative;left:auto;right:auto;top:auto;bottom:auto;margin-bottom:16px;width:auto}.product-tour{padding:12px}.tour-stage{padding:28px 8px 12px}.tour-copy h3{font-size:1.9rem}.tour-image-wrap{padding:16px 12px 0;min-height:420px}.tour-tabs{border-radius:16px}.tour-tab{padding:10px 14px}}
 
 .hero-primary{min-width:230px}
 .coming-soon{
@@ -63,7 +85,7 @@
         <a href="#community">Community</a>
         <a href="#faq">FAQ</a>
       </nav>
-      <a class="button button-gradient button-small" href="https://tschusters-team-mahjong.expo.app" target="_blank" rel="noopener">Sign In / Create Account</a>
+      <a class="button button-gradient button-small" href="https://tschusters-team-mahjong.expo.app" target="_blank" rel="noopener"><span class="label-full">Sign In / Create Account</span><span class="label-short">Sign in</span></a>
     </div>
   </header>
 
@@ -246,7 +268,7 @@
       <div class="container final-grid">
         <img src="assets/logo.png" alt="Seven Bam logo mark" />
         <div><div class="eyebrow">READY TO PLAY?</div><h2>Your next game starts <span class="rainbow">here</span></h2><p>Use Seven Bam on the web now — sign in or create your account to get started</p></div>
-        <a class="button button-gradient" href="https://tschusters-team-mahjong.expo.app" target="_blank" rel="noopener">Sign In / Create Account</a>
+        <a class="button button-gradient" href="https://tschusters-team-mahjong.expo.app" target="_blank" rel="noopener"><span class="label-full">Sign In / Create Account</span><span class="label-short">Sign in</span></a>
       </div>
     </section>
   </main>
