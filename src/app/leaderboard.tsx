@@ -87,9 +87,18 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
       />
 
       <View style={styles.identity}>
+        {/* A closed account keeps its results but not its name, so it is marked
+            rather than left looking like a member called "Player 3f2a" who never
+            filled their profile in. Set in the secondary ink so the note reads as
+            an annotation and not as part of the name. */}
         <ThemedText type="defaultSemiBold" numberOfLines={1}>
           {row.name ?? 'Unnamed member'}
           {isCurrentUser ? ' (you)' : ''}
+          {row.deleted ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {'  (deleted)'}
+            </ThemedText>
+          ) : null}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
           {summarise(row)}

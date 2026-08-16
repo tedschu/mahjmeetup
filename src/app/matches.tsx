@@ -1,6 +1,13 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  SectionList,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AllKinds, keepKind, MatchKindChips, type MatchKinds } from '@/components/browse-filters';
@@ -11,14 +18,54 @@ import { Ribbon } from '@/components/ribbon';
 import { ScoreEntrySheet } from '@/components/score-entry-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import {
   addMatchToCalendar,
   loadCalendarSent,
   recordCalendarSent,
 } from '@/lib/calendar';
-import { fetchMyMatches, type Match } from '@/lib/matches';
+import { fetchMyMatches, isSeated, leaveMatch, type Match } from '@/lib/matches';
 import { supabase } from '@/lib/supabase';
+
+/**
+ * Whether giving up a seat is something this member can do on this match.
+ *
+ * The host is excluded, and not as an oversight: they hold a seat for the life of
+ * the match, so leaving would orphan the table. Their equivalent is calling the
+ * match off, which lives in the edit sheet where there is room to say what happens
+ * to everyone else. Past matches are excluded too — a seat at a game that has
+ * already been played is a record, not a commitment.
+ *
+ * Same predicate as Browse's, deliberately: the two screens offer the same action
+ * on the same rows.
+ */
+function canLeave(match: Match, userId: string) {
+  if (match.host_id === userId) return false;
+  if (match.status === 'canceled' || match.status === 'completed') return false;
+  return isSeated(match, userId);
+}
+
+/**
+ * Give up a seat. Styled as an outlined pill with a word on it rather than as one
+ * of the icon buttons beside it, which is how Browse already draws this — leaving
+ * is not a thing to offer behind a glyph somebody has to guess at.
+ */
+function LeaveButton({ busy, onPress }: { busy: boolean; onPress: () => void }) {
+  const theme = useTheme();
+
+  if (busy) return <ActivityIndicator />;
+
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
+      <View style={[styles.leaveButton, { borderColor: theme.rule }]}>
+        <ThemedText type="label" themeColor="textSecondary">
+          Leave
+        </ThemedText>
+      </View>
+    </Pressable>
+  );
+}
 
 /**
  * What a member can do with a match they are part of. Calling a match off lives
@@ -29,16 +76,20 @@ function MatchActions({
   match,
   userId,
   sentToCalendar,
+  leaving,
   onAddToCalendar,
   onEdit,
   onEnterScores,
+  onLeave,
 }: {
   match: Match;
   userId: string;
   sentToCalendar: boolean;
+  leaving: boolean;
   onAddToCalendar: () => void;
   onEdit: () => void;
   onEnterScores: () => void;
+  onLeave: () => void;
 }) {
   const isHost = match.host_id === userId;
   const scored = match.players.some((player) => player.score !== null);
@@ -71,6 +122,8 @@ function MatchActions({
           tone="primary"
         />
       ) : null}
+
+      {canLeave(match, userId) ? <LeaveButton busy={leaving} onPress={onLeave} /> : null}
     </View>
   );
 }
@@ -85,6 +138,8 @@ export default function MatchesScreen() {
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [calendarSent, setCalendarSent] = useState<Set<string>>(new Set());
   const [kinds, setKinds] = useState<MatchKinds>(AllKinds);
+  /** Which match is mid-leave, so only that row shows a spinner. */
+  const [leavingMatchId, setLeavingMatchId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -136,6 +191,28 @@ export default function MatchesScreen() {
     await load();
     setIsRefreshing(false);
   }, [load]);
+
+  /**
+   * Give up a seat, then reload — the match drops off this screen entirely, since
+   * the list is "matches I am part of". Reloading rather than filtering locally
+   * keeps the seat counts on every other row honest too.
+   */
+  const giveUpSeat = useCallback(
+    async (match: Match) => {
+      if (!userId) return;
+
+      setLeavingMatchId(match.id);
+      try {
+        await leaveMatch(match.id, userId);
+        await load();
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Could not leave this match.');
+      } finally {
+        setLeavingMatchId(null);
+      }
+    },
+    [load, userId]
+  );
 
   // Soonest first for upcoming; most recent first for past.
   const ofChosenKind = matches.filter((m) => keepKind(m.league_id, kinds));
@@ -192,10 +269,25 @@ export default function MatchesScreen() {
                     match={item}
                     userId={userId ?? ''}
                     sentToCalendar={calendarSent.has(item.id)}
+                    leaving={leavingMatchId === item.id}
                     onAddToCalendar={() => sendToCalendar(item)}
                     onEdit={() => setEditingMatchId(item.id)}
                     onEnterScores={() => setScoringMatchId(item.id)}
+                    onLeave={() => giveUpSeat(item)}
                   />
+                }
+                // Also in the detail sheet, where somebody who opened a match to
+                // check the date can act on it without closing the sheet first.
+                // Guarded by the same predicate the row uses, because the sheet
+                // draws a rule above its footer and a rule over an empty row is
+                // just a line across the screen.
+                detailAction={
+                  canLeave(item, userId ?? '') ? (
+                    <LeaveButton
+                      busy={leavingMatchId === item.id}
+                      onPress={() => giveUpSeat(item)}
+                    />
+                  ) : undefined
                 }
               />
             )}
@@ -281,6 +373,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  /** Matches the Leave pill on Browse, so the same action looks the same. */
+  leaveButton: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   centered: {
     textAlign: 'center',

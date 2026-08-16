@@ -86,6 +86,8 @@ export type LeagueStanding = {
   average_points: number | null;
   wins: number;
   average_placement: number | null;
+  /** A closed account, kept in the standings for its results. See LeaderboardRow. */
+  deleted: boolean;
 };
 
 /**
@@ -389,6 +391,7 @@ export async function fetchLeagueStandings(leagueId: string): Promise<LeagueStan
     average_points: row.average_points,
     wins: row.wins ?? 0,
     average_placement: row.average_placement,
+    deleted: row.deleted ?? false,
   }));
 }
 

@@ -12,6 +12,12 @@ export type LeaderboardRow = {
   average_points: number | null;
   wins: number;
   average_placement: number | null;
+  /**
+   * Whether this row belongs to a closed account. Their games stay in the
+   * standings — they are part of everyone else's record — but the name is a
+   * generated label rather than anything they chose, so the screen marks it.
+   */
+  deleted: boolean;
 };
 
 /**
@@ -37,5 +43,6 @@ export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
     average_points: row.average_points,
     wins: row.wins ?? 0,
     average_placement: row.average_placement,
+    deleted: row.deleted ?? false,
   }));
 }

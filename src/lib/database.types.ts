@@ -364,6 +364,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          deleted_at: string | null
           experience_level: string | null
           home_latitude: number | null
           home_longitude: number | null
@@ -374,6 +375,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          deleted_at?: string | null
           experience_level?: string | null
           home_latitude?: number | null
           home_longitude?: number | null
@@ -384,6 +386,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          deleted_at?: string | null
           experience_level?: string | null
           home_latitude?: number | null
           home_longitude?: number | null
@@ -431,6 +434,7 @@ export type Database = {
         Row: {
           average_placement: number | null
           average_points: number | null
+          deleted: boolean | null
           games_played: number | null
           name: string | null
           player_id: string | null
@@ -444,6 +448,7 @@ export type Database = {
           avatar_url: string | null
           average_placement: number | null
           average_points: number | null
+          deleted: boolean | null
           games_played: number | null
           league_id: string | null
           name: string | null
@@ -463,7 +468,9 @@ export type Database = {
       }
     }
     Functions: {
+      anonymous_player_name: { Args: { p_profile_id: string }; Returns: string }
       delete_league: { Args: { p_league_id: string }; Returns: undefined }
+      delete_my_account: { Args: never; Returns: undefined }
       draw_league_session: { Args: { p_session_id: string }; Returns: number }
       enter_match_scores: {
         Args: { p_match_id: string; p_scores: Json }

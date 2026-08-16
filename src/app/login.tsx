@@ -6,7 +6,7 @@ import { signInWithGoogle } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { AnimatedIcon } from '@/components/animated-icon';
 import { GradientButton, OutlineButton } from '@/components/button';
-import { EdgeRibbon } from '@/components/ribbon';
+import { CornerRibbon } from '@/components/ribbon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
@@ -58,9 +58,13 @@ export default function LoginScreen() {
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
       {/* Behind everything, and non-interactive: the screen was otherwise a blank
-          field with a mark floating in it. Runs the full height through the middle,
-          so the form sits on the ribbon rather than beside it. */}
-      <EdgeRibbon />
+          field with a mark floating in it.
+
+          A faint fragment in the corner, which is where this started and where it
+          ended up. The alternative — a full-height ribbon down one side — was tried
+          at length and looked like a border rather than a graphic element; see the
+          history of this file if it comes up again. */}
+      <CornerRibbon />
 
       <SafeAreaView style={styles.safeArea}>
         <AnimatedIcon />
@@ -83,12 +87,6 @@ export default function LoginScreen() {
           </ThemedText>
         </View>
 
-        {/* The card is back, now that the ribbon is anchored to the side rather than
-            running up the middle: there is nothing left for a panel to box out, and
-            the form reads better as one surface than as four floating controls.
-
-            The fields go back to the page grey inside it, which is the contrast that
-            works — they only needed their own white while the card was gone. */}
         <ThemedView style={[styles.formCard, { borderColor: theme.rule }]}>
           <TextInput
             style={[

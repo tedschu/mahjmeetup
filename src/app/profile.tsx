@@ -19,6 +19,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { coordinatesOf, type Coordinates } from '@/lib/geo';
 import { fetchPlaceLocation } from '@/lib/places';
 import {
+  deleteMyAccount,
   EXPERIENCE_LEVELS,
   fetchMyProfile,
   signOut,
@@ -84,6 +85,13 @@ export default function ProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  /**
+   * Two steps for closing the account, the same shape as deleting a league: the
+   * first tap only reveals what is about to happen, and the wording of the second
+   * says it rather than saying "confirm".
+   */
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   /**
    * The town's coordinates, kept beside the draft rather than in it because they
    * are not typed — they arrive from a Places lookup after a suggestion is
@@ -153,6 +161,23 @@ export default function ProfileScreen() {
   const set = (key: keyof Draft) => (next: string) => {
     setDraft((current) => ({ ...current, [key]: next }));
     setStatus(null);
+  };
+
+  /**
+   * No navigation on success, and none needed. Clearing the session makes the root
+   * layout swap the tabs for the login screen, which is the right destination and
+   * the only one that still exists for this caller.
+   */
+  const closeAccount = async () => {
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await deleteMyAccount();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not close your account.');
+      setIsConfirmingDelete(false);
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -247,6 +272,13 @@ export default function ProfileScreen() {
                 Nobody else sees either detail. They are never shown in Browse, on
                 the leaderboard, or to people who have not joined.
               </ThemedText>
+              {/* Where the question "and how do I get it back" belongs — beside the
+                  answer to "who has it", rather than only next to the button at the
+                  bottom of the screen. */}
+              <ThemedText type="small" themeColor="textSecondary">
+                You can take all of it back at any time by closing your account, at
+                the bottom of this screen.
+              </ThemedText>
             </ThemedView>
 
             <PlaceAutocompleteInput
@@ -319,6 +351,65 @@ export default function ProfileScreen() {
                 </ThemedText>
               </View>
             </Pressable>
+
+            {/*
+              Closing the account, last on the screen and separated by a rule.
+
+              Two steps, and the second one describes what happens rather than
+              asking "are you sure" — which is a question nobody can answer well
+              without being told the consequences first. What it says is the truth
+              about what the database does: the identity goes, the games stay. That
+              is a surprising enough bargain that it has to be stated before the
+              tap, not explained afterwards.
+            */}
+            <View style={[styles.removal, { borderColor: theme.rule }]}>
+              {isConfirmingDelete ? (
+                <>
+                  <ThemedText type="smallBold">This cannot be undone.</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Your name, email address, phone number, photo and town are
+                    deleted, and you will not be able to sign in again.
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Games you have already played stay on the leaderboard, listed
+                    under a generated name instead of yours. They are part of the
+                    record for everyone who played at those tables, so they are not
+                    removed.
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Matches you are hosting that have not happened yet pass to
+                    another player, or are called off if nobody else has joined. A
+                    league you organize gets a new organizer.
+                  </ThemedText>
+                  <View style={styles.removalActions}>
+                    <Pressable
+                      onPress={() => setIsConfirmingDelete(false)}
+                      disabled={isDeleting}
+                      style={({ pressed }) => pressed && styles.pressed}>
+                      <ThemedText type="label" themeColor="textSecondary">
+                        Keep my account
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      onPress={closeAccount}
+                      disabled={isDeleting}
+                      style={({ pressed }) => pressed && styles.pressed}>
+                      <ThemedText type="label" style={{ color: theme.danger }}>
+                        {isDeleting ? 'Closing…' : 'Yes, delete my account'}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <Pressable
+                  onPress={() => setIsConfirmingDelete(true)}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedText type="label" style={{ color: theme.danger }}>
+                    Delete my account
+                  </ThemedText>
+                </Pressable>
+              )}
+            </View>
           </ScrollView>
         )}
       </SafeAreaView>
@@ -390,6 +481,24 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
+  },
+  /**
+   * Set off by a rule rather than by a red panel. The same treatment the league
+   * sheet gives its delete step, for the same reason: the weight belongs in the
+   * wording, and a boxed red warning on a settings screen reads as an error the
+   * member has to deal with.
+   */
+  removal: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+    marginTop: Spacing.two,
+    gap: Spacing.two,
+  },
+  removalActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.four,
+    minHeight: 44,
   },
   disabled: {
     opacity: 0.6,

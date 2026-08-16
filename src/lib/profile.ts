@@ -103,6 +103,38 @@ export async function signOut() {
 }
 
 /**
+ * Close the signed-in member's account for good.
+ *
+ * Takes no arguments because the database function takes none: it acts on
+ * `auth.uid()`, so there is no id to pass and no way to aim it at anyone else.
+ *
+ * What it does is wider than deleting a row, and the profile screen says so
+ * before calling it — future matches are handed on or called off, leagues get a
+ * new organizer, and the profile becomes an anonymous tombstone so that other
+ * people's scores and standings still add up. See 20260816010000.
+ *
+ * The local session is cleared afterwards. Not for tidiness: the access token
+ * outlives the user row it names, so anything the app did next would fail with an
+ * authentication error rather than a sign-out.
+ *
+ * `scope: 'local'` because the default asks the server to revoke a session
+ * belonging to a user that no longer exists, which answers 403 — and a sign-out
+ * that reports failure would leave the app signed in as a deleted account. This
+ * clears the stored tokens without a round trip. Wrapped anyway: the deletion has
+ * already happened, so nothing here may report it as failed.
+ */
+export async function deleteMyAccount() {
+  const { error } = await supabase.rpc('delete_my_account');
+  if (error) throw error;
+
+  try {
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch {
+    // See above: the account is gone either way.
+  }
+}
+
+/**
  * Copies the signed-in member's Google photo onto their profiles row.
  *
  * Needed because auth metadata is readable only by its owner: without this, a
