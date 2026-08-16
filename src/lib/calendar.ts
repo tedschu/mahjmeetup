@@ -1,14 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking, Platform } from 'react-native';
 
-import type { Match } from './matches';
+import { AssumedMatchHours, type Match } from './matches';
 
-/**
- * Matches record when they start but not when they finish, so an event needs a
- * length. Three hours is a normal sitting, and an approximate end is far more
- * useful in a calendar than an event with no duration at all.
- */
-const AssumedHours = 3;
+// The assumed sitting length moved to `matches.ts`, so the end of a calendar event
+// and the line between upcoming and past games cannot drift apart. An approximate
+// end is far more useful in a calendar than an event with no duration at all.
 
 /** Google's template URL wants basic-format UTC: 20260811T233000Z. */
 function toBasicUTC(date: Date) {
@@ -24,7 +21,7 @@ function toBasicUTC(date: Date) {
  */
 export function googleCalendarUrl(match: Match) {
   const start = new Date(match.date_time);
-  const end = new Date(start.getTime() + AssumedHours * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + AssumedMatchHours * 60 * 60 * 1000);
 
   const details = [match.notes, match.league ? `Counts toward ${match.league.name}.` : null]
     .filter(Boolean)

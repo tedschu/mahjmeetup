@@ -45,6 +45,38 @@ export type Match = {
   }[];
 };
 
+/**
+ * How long a sitting is assumed to run.
+ *
+ * Matches record when they start but not when they finish, so anything that needs
+ * an end has to assume one. Three hours is a normal sitting.
+ *
+ * Lives here rather than in `calendar.ts`, where it started: it is a fact about
+ * matches, and two callers now need it to agree — an event's end time and the line
+ * between a game still to come and one already played.
+ */
+export const AssumedMatchHours = 3;
+
+/**
+ * Whether a match is over — either because it was closed out, or because its time
+ * has simply come and gone.
+ *
+ * The second half is the part that was missing. My Matches sorted its two sections
+ * on `status` alone, so a match nobody scored and nobody canceled stayed under
+ * "Upcoming" indefinitely: last week's game still listed as though it were ahead
+ * of you. Status says what was recorded about a match, not whether it has happened.
+ *
+ * The assumed length is added rather than comparing against the start time, so a
+ * game does not move to "Past" at 7:01pm while its players are still arriving.
+ *
+ * `now` is a parameter so a list can classify every row against a single instant
+ * instead of re-reading the clock per item, and so this is testable.
+ */
+export function hasFinished(match: Match, now = Date.now()) {
+  if (match.status === 'completed' || match.status === 'canceled') return true;
+  return new Date(match.date_time).getTime() + AssumedMatchHours * 60 * 60 * 1000 < now;
+}
+
 export function isSeated(match: Match, userId: string) {
   return match.players.some((player) => player.player_id === userId);
 }

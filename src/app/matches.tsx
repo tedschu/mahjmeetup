@@ -25,7 +25,7 @@ import {
   loadCalendarSent,
   recordCalendarSent,
 } from '@/lib/calendar';
-import { fetchMyMatches, isSeated, leaveMatch, type Match } from '@/lib/matches';
+import { fetchMyMatches, hasFinished, isSeated, leaveMatch, type Match } from '@/lib/matches';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -40,9 +40,12 @@ import { supabase } from '@/lib/supabase';
  * Same predicate as Browse's, deliberately: the two screens offer the same action
  * on the same rows.
  */
-function canLeave(match: Match, userId: string) {
+function canLeave(match: Match, userId: string, now: number) {
   if (match.host_id === userId) return false;
-  if (match.status === 'canceled' || match.status === 'completed') return false;
+  // Once the game has been and gone, a seat is a record of who was there rather
+  // than a commitment somebody can withdraw. "I cannot make it" has stopped being
+  // a thing you can say about last Tuesday.
+  if (hasFinished(match, now)) return false;
   return isSeated(match, userId);
 }
 
@@ -77,6 +80,7 @@ function MatchActions({
   userId,
   sentToCalendar,
   leaving,
+  now,
   onAddToCalendar,
   onEdit,
   onEnterScores,
@@ -86,6 +90,8 @@ function MatchActions({
   userId: string;
   sentToCalendar: boolean;
   leaving: boolean;
+  /** The instant the list was classified against — see `loadedAt`. */
+  now: number;
   onAddToCalendar: () => void;
   onEdit: () => void;
   onEnterScores: () => void;
@@ -93,15 +99,27 @@ function MatchActions({
 }) {
   const isHost = match.host_id === userId;
   const scored = match.players.some((player) => player.score !== null);
-  const isOver = match.status === 'canceled' || match.status === 'completed';
+  /**
+   * Two different questions, which the old code answered with one variable.
+   *
+   * `isClosed` is what was recorded: somebody scored it or called it off, so there
+   * is nothing left to change. `hasFinished` also covers a match whose time has
+   * simply passed with neither having happened — which is the ambiguous case, and
+   * the reason these have to be separate. Such a match either took place and needs
+   * its card entered, or it fell through and needs a new date, and the host must be
+   * able to do both.
+   */
+  const isClosed = match.status === 'canceled' || match.status === 'completed';
+  const isPast = hasFinished(match, now);
   // Only the host records the card, and a called-off match has nothing to record.
   const canScore = isHost && match.status !== 'canceled' && match.players.length > 0;
 
   return (
     <View style={styles.actions}>
       {/* Every match on this screen is one the member is part of, so there is
-          always something worth putting in a calendar — until it is past. */}
-      {isOver ? null : (
+          always something worth putting in a calendar — until it is past. Keyed on
+          the date, not the status: nobody needs a reminder for last Tuesday. */}
+      {isPast ? null : (
         <QuietButton
           icon={sentToCalendar ? 'calendarCheck' : 'calendarPlus'}
           label={sentToCalendar ? 'Already sent to calendar — send again' : 'Add to calendar'}
@@ -110,7 +128,12 @@ function MatchActions({
         />
       )}
 
-      {isHost && !isOver ? (
+      {/* Deliberately `isClosed` rather than `isPast`. A match that quietly went by
+          without being scored is exactly the one a host may need to edit — to move
+          it to a date that has not happened yet. Hiding this once the clock passed
+          would leave rescheduling impossible and cancel-and-recreate the only way
+          out. */}
+      {isHost && !isClosed ? (
         <QuietButton icon="pencil" label="Edit match" onPress={onEdit} />
       ) : null}
 
@@ -123,7 +146,7 @@ function MatchActions({
         />
       ) : null}
 
-      {canLeave(match, userId) ? <LeaveButton busy={leaving} onPress={onLeave} /> : null}
+      {canLeave(match, userId, now) ? <LeaveButton busy={leaving} onPress={onLeave} /> : null}
     </View>
   );
 }
@@ -140,6 +163,17 @@ export default function MatchesScreen() {
   const [kinds, setKinds] = useState<MatchKinds>(AllKinds);
   /** Which match is mid-leave, so only that row shows a spinner. */
   const [leavingMatchId, setLeavingMatchId] = useState<string | null>(null);
+  /**
+   * The instant every row is classified against, captured when the list loads
+   * rather than read during render.
+   *
+   * Reading the clock while rendering is impure — two renders can disagree, and a
+   * row could move between sections without the data changing. Tying it to the
+   * fetch also puts the boundary where it belongs: the screen already refetches on
+   * focus, so returning to it is exactly when "has this happened yet" should be
+   * asked again.
+   */
+  const [loadedAt, setLoadedAt] = useState(() => Date.now());
 
   const load = useCallback(async () => {
     try {
@@ -155,6 +189,7 @@ export default function MatchesScreen() {
       setUserId(user.id);
       setMatches(await fetchMyMatches(user.id));
       setCalendarSent(await loadCalendarSent(user.id));
+      setLoadedAt(Date.now());
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your matches.');
@@ -215,11 +250,18 @@ export default function MatchesScreen() {
   );
 
   // Soonest first for upcoming; most recent first for past.
+  //
+  // Split on one predicate and its negation rather than on two lists of statuses.
+  // The old pair tested `open`/`full` against `completed`/`canceled`, which was
+  // wrong twice: it ignored the date, so a game nobody scored stayed "Upcoming"
+  // forever, and the two filters were not complements, so any match matching
+  // neither would have quietly appeared in no section at all.
+  //
+  // One `now` for the whole pass, so a row cannot land in both sections or neither
+  // because the clock moved between two filters.
   const ofChosenKind = matches.filter((m) => keepKind(m.league_id, kinds));
-  const upcoming = ofChosenKind.filter((m) => m.status === 'open' || m.status === 'full');
-  const past = ofChosenKind
-    .filter((m) => m.status === 'completed' || m.status === 'canceled')
-    .reverse();
+  const upcoming = ofChosenKind.filter((m) => !hasFinished(m, loadedAt));
+  const past = ofChosenKind.filter((m) => hasFinished(m, loadedAt)).reverse();
 
   const sections = [
     { title: 'Upcoming', data: upcoming },
@@ -270,6 +312,7 @@ export default function MatchesScreen() {
                     userId={userId ?? ''}
                     sentToCalendar={calendarSent.has(item.id)}
                     leaving={leavingMatchId === item.id}
+                    now={loadedAt}
                     onAddToCalendar={() => sendToCalendar(item)}
                     onEdit={() => setEditingMatchId(item.id)}
                     onEnterScores={() => setScoringMatchId(item.id)}
@@ -282,7 +325,7 @@ export default function MatchesScreen() {
                 // draws a rule above its footer and a rule over an empty row is
                 // just a line across the screen.
                 detailAction={
-                  canLeave(item, userId ?? '') ? (
+                  canLeave(item, userId ?? '', loadedAt) ? (
                     <LeaveButton
                       busy={leavingMatchId === item.id}
                       onPress={() => giveUpSeat(item)}
