@@ -48,7 +48,11 @@
 .support-card h3{margin-bottom:8px;color:var(--navy)}
 .support-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
 .small-btn{display:inline-flex;padding:11px 16px;border-radius:999px;border:1px solid var(--teal);color:var(--teal);font-weight:600}
-.small-btn.primary{border:0;background:var(--gradient);color:var(--navy)}
+/* White fill inside a 1.5px gradient ring, matching the app's GradientButton and
+   the buttons on index.html. Was a filled gradient, which is the treatment the app
+   deliberately rejected: it forces the label dark, and white type over the
+   gradient's #ffd44d midpoint is 1.4:1. */
+.small-btn.primary{border:1.5px solid transparent;background:linear-gradient(#fff,#fff) padding-box,var(--gradient) border-box;color:var(--navy)}
 .meta-note{font-size:.86rem;color:#7b8498}
 </style>
 </head>
@@ -71,12 +75,20 @@
 </div>
 
 <div class="support-card">
+  <h3>Add Seven Bam to your phone</h3>
+  <p>Seven Bam runs in your phone's browser, and you can put it on your home screen so it opens in a single tap — no app store, nothing to install, nothing to update.</p>
+  <p><strong>iPhone or iPad</strong><br/>Open Seven Bam in Safari, tap the Share button at the bottom of the screen, scroll down, and choose <strong>Add to Home Screen</strong>. Tap Add.</p>
+  <p><strong>Android</strong><br/>Open Seven Bam in Chrome, tap the three-dot menu in the top right, and choose <strong>Add to Home screen</strong>. Tap Add.</p>
+  <p>You stay signed in, so tapping the icon takes you straight to your matches.</p>
+</div>
+
+<div class="support-card">
   <h3>Common questions</h3>
   <p><strong>How do I find a game?</strong><br/>Open Browse to see available tables and use filters to narrow your options.</p>
   <p><strong>How do I propose a match?</strong><br/>Choose Propose from Browse, then enter the date, time, venue, and any notes for players.</p>
   <p><strong>Where are my upcoming matches?</strong><br/>Open My Matches to see upcoming, hosted, and past games.</p>
   <p><strong>Where can I see league standings?</strong><br/>Open Leagues, select your league, and view standings or rankings.</p>
-  <p><strong>How do I delete my account?</strong><br/>You can delete your account in Seven Bam. If you cannot access your account, use our <a href="delete-account.html">Delete Account page</a>.</p>
+  <p><strong>How do I delete my account?</strong><br/>Open the Profile screen in Seven Bam and choose Delete my account. If you cannot reach your account, email <a href="mailto:sevenbamapp@gmail.com">sevenbamapp@gmail.com</a> and we will delete it for you.</p>
 </div>
 
 <div class="support-card">

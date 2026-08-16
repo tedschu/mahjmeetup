@@ -5,10 +5,11 @@ dependencies, no toolchain. Open `index.html` in a browser and what you see is w
 ships.
 
 It is deliberately *not* part of the Expo app. The app is a React Native web export
-deployed to EAS Hosting; this is five HTML files on a CDN. They share a repo because
-the site quotes the app — screenshots, the sign-in link, and `delete-account.html`,
-which describes behaviour the database actually implements. When that behaviour
-changes, the page documenting it should change in the same commit.
+deployed to EAS Hosting; this is four HTML files on a CDN. They share a repo because
+the site quotes the app — screenshots, the sign-in link, and the account-deletion
+wording in `terms.html` and `privacy.html`, which describes what the database
+actually does. When that behaviour changes, the pages describing it should change in
+the same commit.
 
 ## Deploying
 
@@ -33,10 +34,9 @@ relative asset paths and the tour's image swapping are more faithful over HTTP.
 
 ```
 index.html              the one real page
-privacy.html            \
-terms.html               |  standalone, linked from the footer.
-support.html             |  Flat .html files because sitemap.xml already
-delete-account.html     /   advertises those exact URLs.
+privacy.html            \  standalone, linked from the footer.
+terms.html               |  Flat .html files because sitemap.xml already
+support.html            /   advertises those exact URLs.
 robots.txt
 sitemap.xml
 assets/
