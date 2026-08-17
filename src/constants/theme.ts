@@ -52,6 +52,20 @@ export const Colors = {
      * until it passes at 4.7:1.
      */
     textSecondary: '#6e7480',
+    /**
+     * Placeholder text, and only placeholder text.
+     *
+     * A separate role from `textSecondary` because the two are doing opposite
+     * jobs. Secondary ink is a hint you are meant to read, so it was darkened
+     * until it passed AA. A placeholder is an example of what to type, and at
+     * that weight it read as a value already in the field — people could not
+     * tell an empty input from a filled one.
+     *
+     * Lighter on purpose, at roughly 3:1. Safe because no meaning lives here:
+     * every input on this screen carries a real label above it, so the
+     * placeholder is never the only thing telling you what a field is for.
+     */
+    placeholder: '#a2a8b2',
     /** Card. */
     background: '#ffffff',
     /** Background — the page the cards sit on. */
@@ -89,6 +103,8 @@ export const Colors = {
   dark: {
     text: '#f2f3f5',
     textSecondary: '#9ba1ac',
+    /** See the light theme. Dimmed away from the body ink rather than towards it. */
+    placeholder: '#767d8a',
     /** The card surface, kept lighter than the page so cards still lift off it. */
     background: '#1e2430',
     backgroundElement: '#141821',

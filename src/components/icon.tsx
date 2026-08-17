@@ -48,6 +48,8 @@ const Paths: Record<string, string> = {
   /** Put a league away without erasing it — a lidded box. */
   archive:
     '<rect x="3" y="4" width="18" height="4.5" rx="1"/><path d="M5 8.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V8.5M10 13h4"/>',
+  /** Points down when a section is closed; rotated 180° when it is open. */
+  chevronDown: '<path d="M6 9.5 12 15.5 18 9.5"/>',
 };
 
 export type IconName = keyof typeof Paths;

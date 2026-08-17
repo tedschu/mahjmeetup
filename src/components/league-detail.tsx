@@ -501,7 +501,7 @@ export function LeagueDetail({
                 onBlur={() => saveVisibility(isPublic, maxMembers)}
                 placeholder="No limit"
                 keyboardType="number-pad"
-                placeholderTextColor={theme.textSecondary}
+                placeholderTextColor={theme.placeholder}
                 style={[styles.input, { color: theme.text, borderColor: theme.rule }]}
               />
               <ThemedText type="small" themeColor="textSecondary">
@@ -645,7 +645,7 @@ export function LeagueDetail({
                   value={sessionDate}
                   onChangeText={setSessionDate}
                   placeholder="2026-09-05"
-                  placeholderTextColor={theme.textSecondary}
+                  placeholderTextColor={theme.placeholder}
                   style={[
                     styles.input,
                     styles.pairItem,
@@ -656,7 +656,7 @@ export function LeagueDetail({
                   value={sessionTime}
                   onChangeText={setSessionTime}
                   placeholder="7:00 pm"
-                  placeholderTextColor={theme.textSecondary}
+                  placeholderTextColor={theme.placeholder}
                   autoCapitalize="none"
                   style={[
                     styles.input,

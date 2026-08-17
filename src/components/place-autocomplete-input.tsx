@@ -123,7 +123,7 @@ export function PlaceAutocompleteInput({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={theme.placeholder}
           autoCorrect={false}
           onFocus={() => {
             if (blurTimerRef.current) clearTimeout(blurTimerRef.current);

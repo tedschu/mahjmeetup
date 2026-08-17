@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { GradientButton } from '@/components/button';
+import { SolidButton } from '@/components/button';
 import { MapLink } from '@/components/match-detail-sheet';
 import { Sheet, SheetFooter, SheetSection, SheetTitle } from '@/components/sheet';
 import { ThemedText } from '@/components/themed-text';
@@ -133,7 +133,7 @@ export function PublicLeagueSheet({
 
       {league.is_member || full ? null : (
         <SheetFooter>
-          <GradientButton label="Join league" onPress={onJoin} busy={busy} />
+          <SolidButton label="Join league" onPress={onJoin} busy={busy} wide />
         </SheetFooter>
       )}
     </Sheet>

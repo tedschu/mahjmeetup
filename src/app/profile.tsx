@@ -11,11 +11,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GradientButton } from '@/components/button';
+import { Icon } from '@/components/icon';
 import { PlaceAutocompleteInput } from '@/components/place-autocomplete-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { refreshProfileSetup, useNeedsProfileSetup } from '@/hooks/use-profile-setup';
 import { coordinatesOf, type Coordinates } from '@/lib/geo';
 import { fetchPlaceLocation } from '@/lib/places';
 import {
@@ -60,7 +62,7 @@ function Field({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={theme.textSecondary}
+        placeholderTextColor={theme.placeholder}
         keyboardType={keyboardType ?? 'default'}
         style={[
           styles.input,
@@ -72,6 +74,64 @@ function Field({
           {hint}
         </ThemedText>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * A titled section that starts closed.
+ *
+ * Exists so Name and Town sit at the top of this screen. Those are the two fields
+ * the app actually needs — one so other players know who is at the table, the
+ * other so Browse can sort by distance — and they were the fourth and seventh
+ * things down the page, behind a read-only email, an optional phone number and
+ * four paragraphs about who can see them. All of that still matters; none of it is
+ * what a new member is here to do.
+ *
+ * Closed rather than removed, and the summary line says what is inside, so the
+ * privacy note is one tap away rather than hidden.
+ */
+function Disclosure({
+  title,
+  summary,
+  children,
+}: {
+  title: string;
+  summary: string;
+  children: React.ReactNode;
+}) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <View style={styles.field}>
+      <Pressable
+        onPress={() => setOpen((was) => !was)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => pressed && styles.pressed}>
+        <ThemedView
+          type="background"
+          style={[styles.disclosureHeader, { borderColor: theme.rule }]}>
+          <View style={styles.disclosureText}>
+            <ThemedText type="label" themeColor="textSecondary">
+              {title}
+            </ThemedText>
+            {/* Only while closed: once the contents are on screen, a summary of
+                them is just a line to read past. */}
+            {open ? null : (
+              <ThemedText type="small" themeColor="textSecondary">
+                {summary}
+              </ThemedText>
+            )}
+          </View>
+          <View style={open ? styles.chevronOpen : undefined}>
+            <Icon name="chevronDown" color={theme.textSecondary} size={18} />
+          </View>
+        </ThemedView>
+      </Pressable>
+
+      {open ? <View style={styles.disclosureBody}>{children}</View> : null}
     </View>
   );
 }
@@ -92,6 +152,8 @@ export default function ProfileScreen() {
    */
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  /** Same source as the dot on the Profile tab, so the two always agree. */
+  const needsSetup = useNeedsProfileSetup();
   /**
    * The town's coordinates, kept beside the draft rather than in it because they
    * are not typed — they arrive from a Places lookup after a suggestion is
@@ -151,6 +213,9 @@ export default function ProfileScreen() {
       });
       setStatus('Profile saved.');
       setError(null);
+      // Clears the mark on the Profile tab in the same breath, so the prompt
+      // disappears on the tap that answers it.
+      refreshProfileSetup();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save your profile.');
     } finally {
@@ -198,12 +263,61 @@ export default function ProfileScreen() {
               </ThemedText>
             </View>
 
+            {/*
+              What the dot on the Profile tab means, said in words.
+
+              A dot alone tells somebody that something wants attention but not
+              what, and the people who see this one are exactly the people with the
+              least context: they signed up with an email address, so nothing
+              filled their profile in for them, and they have no idea they are
+              currently "Unnamed member" to everyone else.
+
+              Rendered from the same condition that draws the dot, so the two
+              cannot disagree, and it leaves the screen on the same save.
+            */}
+            {needsSetup ? (
+              <ThemedView
+                type="background"
+                style={[styles.notice, { borderColor: theme.accentWarm }]}>
+                <ThemedText type="label" style={{ color: theme.accentWarmInk }}>
+                  Finish setting up
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Add your name so the group knows who is at the table — without it
+                  you show up as an unnamed player on match cards and the
+                  leaderboard. Adding your town is optional, and lets Browse show
+                  you the closest games first.
+                </ThemedText>
+              </ThemedView>
+            ) : null}
+
             <Field
               label="Name"
               value={draft.name}
               onChangeText={set('name')}
               placeholder="What the group calls you"
               hint="Shown on match cards and the leaderboard."
+            />
+
+            <PlaceAutocompleteInput
+              label="Town"
+              value={draft.town}
+              onChangeText={(next) => {
+                setDraft((current) => ({ ...current, town: next }));
+                // A town typed by hand has no position, and keeping the previous
+                // one would filter Browse around the wrong place.
+                setHome(null);
+              }}
+              onSelectPlace={(suggestion) => {
+                setDraft((current) => ({ ...current, town: suggestion.mainText }));
+                setHome(null);
+                // Not awaited: the field stays responsive, and a profile without
+                // coordinates is perfectly valid — it just cannot sort by distance.
+                fetchPlaceLocation(suggestion.placeId).then(setHome);
+              }}
+              placeholder="Where you play from"
+              hint="Worth adding — pick a suggestion and Browse will show you the closest tables first."
+              kind="city"
             />
 
             {/*
@@ -247,12 +361,9 @@ export default function ProfileScreen() {
                 hands your email to strangers who join it, which is a fair trade for
                 being reachable but not one to make on somebody's behalf silently.
                 Placed under the contact fields, where the question arises. */}
-            <ThemedView
-              type="background"
-              style={[styles.notice, { borderColor: theme.rule }]}>
-              <ThemedText type="label" themeColor="textSecondary">
-                Who can see this
-              </ThemedText>
+            <Disclosure
+              title="Who can see this"
+              summary="Your email is shared with players who join your matches. Tap to read how.">
               <ThemedText type="small" themeColor="textSecondary">
                 When you host a match, everyone who takes a seat can see your email
                 address — and your phone number if you have given one — so they can
@@ -279,28 +390,7 @@ export default function ProfileScreen() {
                 You can take all of it back at any time by closing your account, at
                 the bottom of this screen.
               </ThemedText>
-            </ThemedView>
-
-            <PlaceAutocompleteInput
-              label="Town"
-              value={draft.town}
-              onChangeText={(next) => {
-                setDraft((current) => ({ ...current, town: next }));
-                // A town typed by hand has no position, and keeping the previous
-                // one would filter Browse around the wrong place.
-                setHome(null);
-              }}
-              onSelectPlace={(suggestion) => {
-                setDraft((current) => ({ ...current, town: suggestion.mainText }));
-                setHome(null);
-                // Not awaited: the field stays responsive, and a profile without
-                // coordinates is perfectly valid — it just cannot sort by distance.
-                fetchPlaceLocation(suggestion.placeId).then(setHome);
-              }}
-              placeholder="Where you play from"
-              hint="Pick a suggestion, and Browse can show you the closest tables first."
-              kind="city"
-            />
+            </Disclosure>
 
             <View style={styles.field}>
               <ThemedText type="label" themeColor="textSecondary">
@@ -464,6 +554,26 @@ const styles = StyleSheet.create({
   readOnly: {
     justifyContent: 'center',
     minHeight: 44,
+  },
+  disclosureHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    padding: Spacing.three,
+    borderRadius: Radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  disclosureText: {
+    flex: 1,
+    gap: 2,
+  },
+  /** The same glyph, turned over, rather than a second icon. */
+  chevronOpen: {
+    transform: [{ rotate: '180deg' }],
+  },
+  disclosureBody: {
+    gap: Spacing.three,
+    paddingTop: Spacing.three,
   },
   chips: {
     flexDirection: 'row',

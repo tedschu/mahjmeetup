@@ -77,6 +77,66 @@ export function GradientButton({
 }
 
 /**
+ * The join button: a solid teal fill with white type.
+ *
+ * Its own variant because joining is the one action that repeats down a list, and
+ * neither of the buttons above can do that job. `GradientButton` is explicitly at
+ * most one per screen and Browse already spends it on Propose — so league cards
+ * using it meant a screen with five gradient buttons on it, each shouting as loudly
+ * as the one action the screen is built around. `OutlineButton` is too quiet for
+ * the thing a member came to Browse to do.
+ *
+ * A fill rather than an outline, in `accentButton` — the teal taken deep enough
+ * that white type on it passes AA, which the brand teal at 2.5:1 does not.
+ *
+ * Compact by default so it sits in a card's action row; `wide` stretches it for a
+ * sheet footer. Both are the same button, which is the point: taking a seat at a
+ * match and joining a league now look identical, because they are the same kind of
+ * decision.
+ */
+export function SolidButton({
+  label,
+  onPress,
+  disabled,
+  busy,
+  icon,
+  wide,
+  style,
+}: Common) {
+  const theme = useTheme();
+  const inert = disabled || busy;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={inert}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: Boolean(inert), busy: Boolean(busy) }}
+      style={({ pressed }) => [
+        styles.button,
+        styles.solid,
+        { backgroundColor: theme.accentButton },
+        wide && styles.wide,
+        disabled && styles.disabled,
+        pressed && styles.pressed,
+        style,
+      ]}>
+      {busy ? (
+        <ActivityIndicator color={theme.onAccentButton} />
+      ) : (
+        <>
+          {icon ? <Icon name={icon} color={theme.onAccentButton} size={18} /> : null}
+          <ThemedText type="smallBold" style={{ color: theme.onAccentButton }}>
+            {label}
+          </ThemedText>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
+/**
  * The secondary button: the card surface behind a teal outline, per the guide.
  *
  * The label is `accentInk` rather than the teal of the border, because the border
@@ -196,6 +256,16 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.four,
     borderRadius: Radius.pill,
+  },
+  /**
+   * Tighter than the base button, matching the row of controls a match card
+   * already has. Still 34px tall, which is what the Leave pill beside it uses.
+   */
+  solid: {
+    minHeight: 34,
+    minWidth: 104,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
   },
   outline: {
     borderWidth: 1.5,

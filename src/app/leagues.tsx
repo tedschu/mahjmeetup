@@ -64,7 +64,7 @@ function NewLeagueForm({
         value={name}
         onChangeText={setName}
         placeholder="Fox Valley League"
-        placeholderTextColor={theme.textSecondary}
+        placeholderTextColor={theme.placeholder}
         style={[styles.input, { color: theme.text, borderColor: theme.rule }]}
       />
 
@@ -120,7 +120,7 @@ function NewLeagueForm({
             onChangeText={(next) => setMaxMembers(next.replace(/[^0-9]/g, ''))}
             placeholder="No limit"
             keyboardType="number-pad"
-            placeholderTextColor={theme.textSecondary}
+            placeholderTextColor={theme.placeholder}
             style={[styles.input, { color: theme.text, borderColor: theme.rule }]}
           />
           <ThemedText type="small" themeColor="textSecondary">

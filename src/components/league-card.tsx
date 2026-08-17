@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { GradientButton } from './button';
+import { SolidButton } from './button';
 import { ThemedText } from './themed-text';
 
 import { PublicLeagueSheet } from '@/components/public-league-sheet';
@@ -108,7 +108,7 @@ export function LeagueCard({
           afterwards rather than picked now. */}
       {league.is_member || full ? null : (
         <View style={styles.actionRow}>
-          <GradientButton label="Join league" onPress={onJoin} busy={busy} />
+          <SolidButton label="Join league" onPress={onJoin} busy={busy} />
         </View>
       )}
 

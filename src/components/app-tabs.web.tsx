@@ -19,10 +19,12 @@ import {
   WebTabBarInset,
 } from '@/constants/theme';
 import { useCompact } from '@/hooks/use-compact';
+import { useNeedsProfileSetup } from '@/hooks/use-profile-setup';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function AppTabs() {
   const compact = useCompact();
+  const needsSetup = useNeedsProfileSetup();
 
   return (
     <Tabs>
@@ -58,7 +60,8 @@ export default function AppTabs() {
             </TabButton>
           </TabTrigger>
           <TabTrigger name="profile" href="/profile" asChild>
-            <TabButton icon="person" compactLabel="Profile">
+            {/* Marked while this member has no name — see useNeedsProfileSetup. */}
+            <TabButton icon="person" compactLabel="Profile" mark={needsSetup}>
               Profile
             </TabButton>
           </TabTrigger>
@@ -73,6 +76,7 @@ export function TabButton({
   isFocused,
   icon,
   compactLabel,
+  mark,
   ...props
 }: TabTriggerSlotProps & {
   icon: IconName;
@@ -82,6 +86,8 @@ export function TabButton({
    * on the wide bar, where there is room for it.
    */
   compactLabel: string;
+  /** Draws the attention dot. Only Profile uses it, and only until set up. */
+  mark?: boolean;
 }) {
   const compact = useCompact();
   const theme = useTheme();
@@ -90,6 +96,9 @@ export function TabButton({
   return (
     <Pressable
       {...props}
+      // Announced as well as drawn: a coloured dot says nothing to a screen
+      // reader, and this one is the only prompt some members get.
+      accessibilityLabel={mark ? `${compactLabel} — setup needed` : undefined}
       style={({ pressed }) => [compact && styles.compactTrigger, pressed && styles.pressed]}>
       {/* A teal rule marks the active tab rather than a filled shape: the
           filter chips are filled pills, and the navigation should not read as
@@ -115,6 +124,20 @@ export function TabButton({
           style={compact ? styles.compactLabel : undefined}>
           {compact ? compactLabel : children}
         </ThemedText>
+
+        {/* Absolutely positioned so appearing and disappearing never moves the
+            label — a tab that shifts sideways when a dot arrives is worse than no
+            dot. Warm amber rather than the danger red: nothing is wrong, there is
+            just something left to do. */}
+        {mark ? (
+          <View
+            style={[
+              styles.mark,
+              compact ? styles.markCompact : styles.markWide,
+              { backgroundColor: theme.accentWarm, borderColor: theme.background },
+            ]}
+          />
+        ) : null}
       </View>
     </Pressable>
   );
@@ -228,6 +251,28 @@ const styles = StyleSheet.create({
   compactLabel: {
     fontSize: 10,
     letterSpacing: 0.4,
+  },
+  /**
+   * The attention dot. Ringed in the bar's own colour so it stays legible where it
+   * overlaps the icon, the way the leaderboard avatars are ringed.
+   */
+  mark: {
+    position: 'absolute',
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    borderWidth: 1.5,
+  },
+  /** Off the label's top-right on the wide bar, where there is no icon. */
+  markWide: {
+    top: 2,
+    right: 0,
+  },
+  /** On the icon's shoulder in the bottom bar, which is where a badge belongs. */
+  markCompact: {
+    top: 4,
+    right: '50%',
+    marginRight: -16,
   },
   pressed: {
     opacity: 0.7,

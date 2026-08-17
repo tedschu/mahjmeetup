@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { signInWithGoogle } from '@/lib/auth';
+import { describeAuthError, signInWithGoogle } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { AnimatedIcon } from '@/components/animated-icon';
 import { GradientButton, OutlineButton } from '@/components/button';
@@ -26,7 +26,7 @@ export default function LoginScreen() {
       email,
       password,
     });
-    if (error) setError(error.message);
+    if (error) setError(describeAuthError(error));
     setLoading(false);
   }
 
@@ -37,8 +37,9 @@ export default function LoginScreen() {
       data: { session },
       error,
     } = await supabase.auth.signUp({ email, password });
-    if (error) setError(error.message);
-    else if (!session) setError('Check your inbox to confirm your email address.');
+    if (error) setError(describeAuthError(error));
+    else if (!session)
+      setError('Almost there — open the link in the confirmation email we just sent, then sign in.');
     setLoading(false);
   }
 
@@ -48,7 +49,7 @@ export default function LoginScreen() {
     try {
       await signInWithGoogle();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Google sign-in did not work.');
+      setError(describeAuthError(cause));
     } finally {
       // On web the page navigates away, so this only matters when it fails.
       setLoading(false);
@@ -102,7 +103,7 @@ export default function LoginScreen() {
             placeholder="email@address.com"
             autoCapitalize="none"
             keyboardType="email-address"
-            placeholderTextColor={theme.textSecondary}
+            placeholderTextColor={theme.placeholder}
           />
           <TextInput
             style={[
@@ -118,7 +119,7 @@ export default function LoginScreen() {
             secureTextEntry
             placeholder="Password"
             autoCapitalize="none"
-            placeholderTextColor={theme.textSecondary}
+            placeholderTextColor={theme.placeholder}
           />
 
           {/* The one gradient on the screen, on the one thing most people are here

@@ -113,7 +113,7 @@ export function ScoreEntrySheet({
                       keyboardType="numbers-and-punctuation"
                       inputMode="numeric"
                       placeholder={row.score === null ? '0' : String(row.score)}
-                      placeholderTextColor={theme.textSecondary}
+                      placeholderTextColor={theme.placeholder}
                       style={[
                         styles.input,
                         {

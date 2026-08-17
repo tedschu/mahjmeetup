@@ -4,7 +4,9 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Vie
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrowseFilterBar, defaultFilters, type BrowseFilters } from '@/components/browse-filters';
-import { GradientButton } from '@/components/button';
+import { HomeScreenSheet } from '@/components/home-screen-sheet';
+import { ProfileSetupBanner } from '@/components/profile-setup-banner';
+import { GradientButton, SolidButton } from '@/components/button';
 import { LeagueCard } from '@/components/league-card';
 import { MatchCard } from '@/components/match-card';
 import { MatchSheet } from '@/components/match-sheet';
@@ -30,6 +32,11 @@ import {
   type Match,
 } from '@/lib/matches';
 import { fetchPublicLeagues, joinPublicLeague, type PublicLeague } from '@/lib/leagues';
+import {
+  homeScreenPromptFor,
+  rememberHomeScreenPrompt,
+  type MobilePlatform,
+} from '@/lib/home-screen-prompt';
 import { fetchMyHome } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 
@@ -161,15 +168,9 @@ function SeatButton({
     );
   }
 
-  return (
-    <Pressable onPress={onJoin} style={({ pressed }) => pressed && styles.pressed}>
-      <View style={[styles.seatButton, { backgroundColor: theme.accentButton }]}>
-        <ThemedText type="label" style={{ color: theme.onAccentButton }}>
-          Join
-        </ThemedText>
-      </View>
-    </Pressable>
-  );
+  // The same component the league cards use, so a seat and a league read as the
+  // same kind of offer rather than two unrelated controls on one screen.
+  return <SolidButton label="Join" onPress={onJoin} />;
 }
 
 export default function BrowseMatchesScreen() {
@@ -190,6 +191,12 @@ export default function BrowseMatchesScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [busyMatchId, setBusyMatchId] = useState<string | null>(null);
   const [isProposing, setIsProposing] = useState(false);
+  /**
+   * Set to a platform only when the home screen sheet should open, which is once
+   * ever, on a phone, just after this member's first join. All of that is decided
+   * in home-screen-prompt.ts; here it is simply null or not.
+   */
+  const [homeScreenPlatform, setHomeScreenPlatform] = useState<MobilePlatform | null>(null);
   /**
    * The match being edited, opened from its detail sheet.
    *
@@ -247,23 +254,45 @@ export default function BrowseMatchesScreen() {
     setIsRefreshing(false);
   }, [load]);
 
+  /**
+   * Offers the home screen shortcut, at most once per member.
+   *
+   * Called only after a join has actually succeeded, so a failed tap never
+   * produces a congratulatory sheet. Marked as shown before it opens rather than
+   * after it closes: if the member navigates away instead of dismissing it, it
+   * still counts as asked.
+   */
+  const maybePromptHomeScreen = useCallback(async () => {
+    if (!userId) return;
+    const platform = await homeScreenPromptFor(userId);
+    if (!platform) return;
+    await rememberHomeScreenPrompt(userId);
+    setHomeScreenPlatform(platform);
+  }, [userId]);
+
   // Refetch rather than patching local state: the seat triggers may also have
   // flipped the match between open and full.
   const changeSeat = useCallback(
-    async (matchId: string, action: (matchId: string, userId: string) => Promise<void>) => {
+    async (
+      matchId: string,
+      action: (matchId: string, userId: string) => Promise<void>,
+      /** Joining, as opposed to leaving — the two share this function. */
+      isJoin = false
+    ) => {
       if (!userId) return;
 
       setBusyMatchId(matchId);
       try {
         await action(matchId, userId);
         await load();
+        if (isJoin) await maybePromptHomeScreen();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'That did not work. Try again.');
       } finally {
         setBusyMatchId(null);
       }
     },
-    [load, userId]
+    [load, maybePromptHomeScreen, userId]
   );
 
   const joinLeague = useCallback(
@@ -272,13 +301,14 @@ export default function BrowseMatchesScreen() {
       try {
         await joinPublicLeague(leagueId);
         await load();
+        await maybePromptHomeScreen();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Could not join that league.');
       } finally {
         setJoiningLeagueId(null);
       }
     },
-    [load]
+    [load, maybePromptHomeScreen]
   );
 
   const visible = matches.filter((match) => keep(match, filters, home));
@@ -334,6 +364,14 @@ export default function BrowseMatchesScreen() {
           </View>
         </View>
 
+        {/* Above the filters, below the heading: the first thing under the title
+            for a member who has not finished setting up, and absent for everyone
+            else. Browse is where every new member lands, which is why it is here
+            rather than on the profile screen they have no reason to visit yet. */}
+        <View style={styles.setupPrompt}>
+          <ProfileSetupBanner />
+        </View>
+
         <BrowseFilterBar
           filters={filters}
           onChange={setFilters}
@@ -373,7 +411,7 @@ export default function BrowseMatchesScreen() {
                   match={row.match}
                   userId={userId ?? ''}
                   busy={busyMatchId === row.match.id}
-                  onJoin={() => changeSeat(row.match.id, joinMatch)}
+                  onJoin={() => changeSeat(row.match.id, joinMatch, true)}
                   onLeave={() => changeSeat(row.match.id, leaveMatch)}
                 />
               );
@@ -441,6 +479,17 @@ export default function BrowseMatchesScreen() {
             await load();
           }}
         />
+
+        {/* Opens once, on a phone, right after this member's first join. Rendered
+            only when a platform was decided, so the sheet never has to cope with
+            not knowing which set of steps to show. */}
+        {homeScreenPlatform ? (
+          <HomeScreenSheet
+            visible
+            platform={homeScreenPlatform}
+            onClose={() => setHomeScreenPlatform(null)}
+          />
+        ) : null}
       </SafeAreaView>
     </ThemedView>
   );
@@ -469,6 +518,11 @@ const styles = StyleSheet.create({
   },
   headerText: {
     flex: 1,
+  },
+  /** Same gutters as the header above it and the filter bar below. */
+  setupPrompt: {
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.three,
   },
   subtitle: {
     marginTop: 2,

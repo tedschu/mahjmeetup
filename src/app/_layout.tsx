@@ -13,6 +13,7 @@ import {
   rememberPendingInvite,
   takePendingInvite,
 } from '@/lib/leagues';
+import { clearProfileSetup, refreshProfileSetup } from '@/hooks/use-profile-setup';
 import { syncMyAvatar } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import LoginScreen from './login';
@@ -64,6 +65,11 @@ export default function TabLayout() {
       if (session?.user) {
         syncMyAvatar();
         redeemInvite();
+        // Marks the Profile tab when this member has no name yet, which in
+        // practice means they signed up with an email address rather than Google.
+        // Independent of syncMyAvatar, which only ever writes a photo — the name
+        // arrives from provider metadata at signup or not at all.
+        refreshProfileSetup();
       }
     })();
 
@@ -74,6 +80,11 @@ export default function TabLayout() {
       if (session?.user) {
         syncMyAvatar();
         redeemInvite();
+        refreshProfileSetup();
+      } else {
+        // Signing out has to clear it, or the mark would still be sitting on a
+        // tab bar that the next member to sign in inherits.
+        clearProfileSetup();
       }
     });
 

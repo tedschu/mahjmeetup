@@ -205,7 +205,7 @@ export function MatchSheet({
                   value={date}
                   onChangeText={setDate}
                   placeholder="2026-08-15"
-                  placeholderTextColor={theme.textSecondary}
+                  placeholderTextColor={theme.placeholder}
                   style={[
                     styles.input,
                     { color: theme.text, backgroundColor: theme.backgroundElement },
@@ -218,7 +218,7 @@ export function MatchSheet({
                   value={time}
                   onChangeText={setTime}
                   placeholder={DefaultTime}
-                  placeholderTextColor={theme.textSecondary}
+                  placeholderTextColor={theme.placeholder}
                   autoCapitalize="none"
                   style={[
                     styles.input,
@@ -269,7 +269,7 @@ export function MatchSheet({
                 value={notes}
                 onChangeText={setNotes}
                 placeholder="Parking, buzzer code, what to bring"
-                placeholderTextColor={theme.textSecondary}
+                placeholderTextColor={theme.placeholder}
                 multiline
                 style={[
                   styles.input,
