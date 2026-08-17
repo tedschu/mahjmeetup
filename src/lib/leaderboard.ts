@@ -7,6 +7,12 @@ import { supabase } from './supabase';
 export type LeaderboardRow = {
   player_id: string;
   name: string | null;
+  /**
+   * Their Google photo, when they have signed in with Google. The view carried
+   * every other column of a standings row but not this one, so the all-matches
+   * board drew initials for members whose photo the league board was showing.
+   */
+  avatar_url: string | null;
   games_played: number;
   total_points: number;
   average_points: number | null;
@@ -38,6 +44,7 @@ export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
   return (data ?? []).map((row) => ({
     player_id: row.player_id ?? '',
     name: row.name,
+    avatar_url: row.avatar_url,
     games_played: row.games_played ?? 0,
     total_points: row.total_points ?? 0,
     average_points: row.average_points,

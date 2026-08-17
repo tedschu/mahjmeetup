@@ -432,6 +432,7 @@ export type Database = {
     Views: {
       leaderboard: {
         Row: {
+          avatar_url: string | null
           average_placement: number | null
           average_points: number | null
           deleted: boolean | null

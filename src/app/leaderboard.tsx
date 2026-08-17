@@ -29,7 +29,11 @@ import { supabase } from '@/lib/supabase';
 
 type Scope = { id: string | null; label: string; tint: string | null };
 
-type RankedRow = LeaderboardRow & { rank: number; avatar_url?: string | null };
+/**
+ * Both sources carry the same columns now, so the avatar is no longer an optional
+ * extra bolted on for the league board — the all-matches view selects it too.
+ */
+type RankedRow = LeaderboardRow & { rank: number };
 
 /** Equal totals share a rank, and the next rank skips accordingly (1, 2, 2, 4). */
 function withRanks<T extends LeaderboardRow>(rows: T[]): (T & { rank: number })[] {
@@ -46,13 +50,22 @@ function withRanks<T extends LeaderboardRow>(rows: T[]): (T & { rank: number })[
 }
 
 function summarise(row: RankedRow) {
-  if (row.games_played === 0) return 'No completed matches yet';
+  // Short on purpose. This line is what runs a row out of width, and "completed"
+  // was carrying no weight the footnote does not already carry.
+  if (row.games_played === 0) return 'No games yet';
 
   const games = `${row.games_played} ${row.games_played === 1 ? 'game' : 'games'}`;
   const wins = `${row.wins} ${row.wins === 1 ? 'win' : 'wins'}`;
+  // Dropped after a single game, where the average is the total already set in the
+  // column to the right — and since the average is the last thing on the line, it is
+  // the piece that ellipsizes on a narrow phone. Better to spend that room on the
+  // two facts that are not repeats.
   // toFixed keeps the column even: the view returns 40.0, which JS would
   // otherwise render as "40" next to "53.3".
-  const average = row.average_points === null ? null : `avg ${row.average_points.toFixed(1)}`;
+  const average =
+    row.games_played > 1 && row.average_points !== null
+      ? `avg ${row.average_points.toFixed(1)}`
+      : null;
 
   return [games, wins, average].filter(Boolean).join(' · ');
 }
@@ -81,7 +94,7 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
           row the rule is nearly the same value as the highlight and the ring
           disappeared. */}
       <Avatar
-        person={{ name: row.name, avatar_url: row.avatar_url ?? null }}
+        person={{ name: row.name, avatar_url: row.avatar_url }}
         size={30}
         ring={isCurrentUser ? theme.background : theme.rule}
       />
@@ -100,7 +113,9 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
             </ThemedText>
           ) : null}
         </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        {/* Clipped rather than wrapped: the row is a single line by design, and a
+            summary that wraps would make each card a different height. */}
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
           {summarise(row)}
         </ThemedText>
       </View>
@@ -340,7 +355,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     borderRadius: Radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    gap: Spacing.three,
+    // Eight, not sixteen. Five columns means four gaps, so sixteen spent 64px of
+    // the 345px a card gets on a 393pt phone — enough that a name the length of
+    // "Anna Lettenberger" left the score with no padding at all.
+    gap: Spacing.two,
   },
   /** Same faint lift as the match cards, so both read as the same material. */
   raised: Platform.select({
@@ -354,7 +372,21 @@ const styles = StyleSheet.create({
   muted: {
     opacity: 0.45,
   },
+  /**
+   * The block that gives way when a row runs out of room, and the fix for scores
+   * sitting hard against the card edge.
+   *
+   * `flexShrink` is the whole bug: it defaults to 0 for a View in Yoga and in
+   * react-native-web both, so this held its full intrinsic width and refused to give
+   * any back. A long name or a long summary pushed the row wider than the card and
+   * carried the score out past the padding with it — which is also why the
+   * `numberOfLines` above never truncated anything. It had all the width it asked
+   * for. `minWidth: 0` is already RNW's default for a View and is stated here only
+   * so the shrink does not depend on that.
+   */
   identity: {
+    flexShrink: 1,
+    minWidth: 0,
     gap: 2,
   },
   /** Carries the eye from the name across to the value, as the card's rules do. */
@@ -362,9 +394,19 @@ const styles = StyleSheet.create({
     flex: 1,
     borderBottomWidth: StyleSheet.hairlineWidth,
     marginBottom: 2,
-    minWidth: Spacing.four,
+    // Short enough to still read as a rule once the row is tight. The name gives
+    // way before this does, because a clipped name is better than a lost score.
+    minWidth: Spacing.three,
   },
+  /**
+   * No width of its own, deliberately. The leader rule above takes every pixel the
+   * row has spare, so the score is always flush against the right padding whether it
+   * reads 8 or 1200 — a fixed column would only take 40px off the name to buy an
+   * alignment the layout already guarantees. `flexShrink: 0` is the part that
+   * matters: the numeral must never be the thing that gives way.
+   */
   points: {
+    flexShrink: 0,
     textAlign: 'right',
   },
   footnote: {
