@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { describeAuthError, signInWithGoogle } from '@/lib/auth';
+import { describeAuthError, sendPasswordReset, signInWithGoogle } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { AnimatedIcon } from '@/components/animated-icon';
 import { GradientButton, OutlineButton } from '@/components/button';
@@ -18,6 +18,13 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  /**
+   * The screen has two jobs and one form. `forgot` swaps the password field and the
+   * three buttons for a single Send button — rather than a separate route, because
+   * the signed-out state is this component rather than anything the router owns.
+   */
+  const [forgot, setForgot] = useState(false);
 
   async function signInWithEmail() {
     setLoading(true);
@@ -41,6 +48,24 @@ export default function LoginScreen() {
     else if (!session)
       setError('Almost there — open the link in the confirmation email we just sent, then sign in.');
     setLoading(false);
+  }
+
+  async function requestPasswordReset() {
+    setLoading(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await sendPasswordReset(email);
+      // Says the same thing whether or not the address has an account, so this
+      // cannot be used to find out who is a member.
+      setNotice(
+        `If there is an account for ${email.trim()}, a reset link is on its way. Open it in this browser — a link opened somewhere else cannot complete the reset.`
+      );
+    } catch (cause) {
+      setError(describeAuthError(cause));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function continueWithGoogle() {
@@ -105,38 +130,95 @@ export default function LoginScreen() {
             keyboardType="email-address"
             placeholderTextColor={theme.placeholder}
           />
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: theme.backgroundElement,
-                color: theme.text,
-                borderColor: theme.rule,
-              },
-            ]}
-            onChangeText={setPassword}
-            value={password}
-            secureTextEntry
-            placeholder="Password"
-            autoCapitalize="none"
-            placeholderTextColor={theme.placeholder}
-          />
+          {/* Hidden while resetting: a password field on a screen whose whole
+              purpose is that you have forgotten it is just something to ignore. */}
+          {forgot ? null : (
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.backgroundElement,
+                  color: theme.text,
+                  borderColor: theme.rule,
+                },
+              ]}
+              onChangeText={setPassword}
+              value={password}
+              secureTextEntry
+              placeholder="Password"
+              autoCapitalize="none"
+              placeholderTextColor={theme.placeholder}
+            />
+          )}
 
-          {/* The one gradient on the screen, on the one thing most people are here
-              to do. Everything else is outlined, exactly as the guide lays out its
-              welcome screen. */}
-          <GradientButton label="Sign in" onPress={signInWithEmail} busy={loading} wide />
-          <OutlineButton label="Create account" onPress={signUpWithEmail} disabled={loading} wide />
+          {forgot ? (
+            <>
+              <GradientButton
+                label="Email me a reset link"
+                onPress={requestPasswordReset}
+                busy={loading}
+                disabled={email.trim().length === 0}
+                wide
+              />
+              <OutlineButton
+                label="Back to sign in"
+                onPress={() => {
+                  setForgot(false);
+                  setError(null);
+                  setNotice(null);
+                }}
+                disabled={loading}
+                wide
+              />
+            </>
+          ) : (
+            <>
+              {/* The one gradient on the screen, on the one thing most people are
+                  here to do. Everything else is outlined, exactly as the guide lays
+                  out its welcome screen. */}
+              <GradientButton label="Sign in" onPress={signInWithEmail} busy={loading} wide />
+              <OutlineButton
+                label="Create account"
+                onPress={signUpWithEmail}
+                disabled={loading}
+                wide
+              />
 
-          <View style={[styles.divider, { backgroundColor: theme.rule }]} />
+              {/* Quietest control on the card. Nobody is looking for this until they
+                  need it, and then they need it to be obvious — so it is plain text
+                  in the link ink rather than a third button competing with the two
+                  above it. */}
+              <Pressable
+                onPress={() => {
+                  setForgot(true);
+                  setError(null);
+                  setNotice(null);
+                }}
+                accessibilityRole="button"
+                style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText
+                  type="small"
+                  style={[styles.forgotLink, { color: theme.accentInk }]}>
+                  Forgot your password?
+                </ThemedText>
+              </Pressable>
 
-          <OutlineButton
-            label="Continue with Google"
-            onPress={continueWithGoogle}
-            disabled={loading}
-            wide
-          />
+              <View style={[styles.divider, { backgroundColor: theme.rule }]} />
 
+              <OutlineButton
+                label="Continue with Google"
+                onPress={continueWithGoogle}
+                disabled={loading}
+                wide
+              />
+            </>
+          )}
+
+          {notice ? (
+            <ThemedText type="small" style={[styles.error, { color: theme.accentInk }]}>
+              {notice}
+            </ThemedText>
+          ) : null}
           {error ? (
             <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
               {error}
@@ -196,5 +278,11 @@ const styles = StyleSheet.create({
   },
   error: {
     textAlign: 'center',
+  },
+  forgotLink: {
+    textAlign: 'center',
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

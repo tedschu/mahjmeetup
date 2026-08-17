@@ -8,6 +8,7 @@ import { Session } from '@supabase/supabase-js';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { HomeScreenSheet } from '@/components/home-screen-sheet';
+import { SetPasswordScreen } from '@/components/set-password-screen';
 import {
   inviteTokenFromUrl,
   joinLeagueWithToken,
@@ -20,6 +21,7 @@ import {
   useHomeScreenPrompt,
 } from '@/hooks/use-home-screen-prompt';
 import { clearProfileSetup, refreshProfileSetup } from '@/hooks/use-profile-setup';
+import { isPasswordResetPending } from '@/lib/auth';
 import { syncMyAvatar } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import LoginScreen from './login';
@@ -57,6 +59,19 @@ export default function TabLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [fontsLoaded] = useFonts({ Poppins_600SemiBold });
   const homeScreenPrompt = useHomeScreenPrompt();
+  /**
+   * Holds a member on the set-password screen after they follow a recovery link.
+   *
+   * Needed because the link itself signs them in, and a session is all this layout
+   * normally looks at — so without this they would land in Browse having reset
+   * nothing, with the old password still working.
+   *
+   * Read from storage rather than from the PASSWORD_RECOVERY event. That event is
+   * emitted while the client initialises, which happens on import, so a listener
+   * mounted here can miss it on a cold load. The event is honoured too, for the
+   * case where the app was already open.
+   */
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -71,6 +86,7 @@ export default function TabLayout() {
       } = await supabase.auth.getSession();
 
       setSession(session);
+      if (session?.user && (await isPasswordResetPending())) setRecovering(true);
       // Publishes this member's Google photo to their profile so the group can
       // see it on match cards. Once per session, not per screen.
       if (session?.user) {
@@ -86,8 +102,9 @@ export default function TabLayout() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
       if (session?.user) {
         syncMyAvatar();
         redeemInvite(session.user.id);
@@ -96,6 +113,7 @@ export default function TabLayout() {
         // Signing out has to clear it, or the mark would still be sitting on a
         // tab bar that the next member to sign in inherits.
         clearProfileSetup();
+        setRecovering(false);
       }
     });
 
@@ -109,7 +127,13 @@ export default function TabLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      {session && session.user ? <AppTabs /> : <LoginScreen />}
+      {session && session.user ? (
+        // Ordered deliberately: a pending reset outranks the tabs, so the only way
+        // past this screen is to set a password or explicitly decline.
+        recovering ? <SetPasswordScreen onDone={() => setRecovering(false)} /> : <AppTabs />
+      ) : (
+        <LoginScreen />
+      )}
       {/* One sheet for the whole app, so every join path can raise it — Browse
           after a seat or a league, and redeemInvite after a link. */}
       {homeScreenPrompt ? (
