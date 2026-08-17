@@ -120,8 +120,10 @@ function StandingRow({ row, isCurrentUser }: { row: RankedRow; isCurrentUser: bo
         </ThemedText>
       </View>
 
-      {/* Uses the secondary ink rather than the hairline rule colour: the rule
-          is tuned for card edges and disappears against the highlighted row. */}
+      {/* Drawn from the secondary ink rather than the hairline rule colour, which is
+          tuned for card edges and disappears against the highlighted row — then taken
+          most of the way back down with opacity, because at full strength a hairline
+          in a 4.7:1 ink reads as a black line rather than a leader rule. */}
       <View style={[styles.leader, { borderColor: theme.textSecondary }]} />
 
       <ThemedText
@@ -394,6 +396,12 @@ const styles = StyleSheet.create({
     flex: 1,
     borderBottomWidth: StyleSheet.hairlineWidth,
     marginBottom: 2,
+    // Grey, not black. Applied as opacity rather than as a fourth grey in the
+    // palette so it still follows the secondary ink into dark mode, where a fixed
+    // light grey would be the wrong direction entirely. Lands on #bec0c6 over a
+    // white card, #565c68 over a dark one, and stays visible on the yellow
+    // highlight — which a paler token from the palette would not.
+    opacity: 0.45,
     // Short enough to still read as a rule once the row is tight. The name gives
     // way before this does, because a clipped name is better than a lost score.
     minWidth: Spacing.three,
