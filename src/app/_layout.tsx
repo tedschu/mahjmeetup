@@ -7,12 +7,18 @@ import { Session } from '@supabase/supabase-js';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
+import { HomeScreenSheet } from '@/components/home-screen-sheet';
 import {
   inviteTokenFromUrl,
   joinLeagueWithToken,
   rememberPendingInvite,
   takePendingInvite,
 } from '@/lib/leagues';
+import {
+  dismissHomeScreenPrompt,
+  offerHomeScreenPrompt,
+  useHomeScreenPrompt,
+} from '@/hooks/use-home-screen-prompt';
 import { clearProfileSetup, refreshProfileSetup } from '@/hooks/use-profile-setup';
 import { syncMyAvatar } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
@@ -31,12 +37,16 @@ SplashScreen.preventAutoHideAsync();
  * Silent on failure. A bad or already-used invite is not worth interrupting a
  * sign-in over, and re-opening the link reports it properly.
  */
-async function redeemInvite() {
+async function redeemInvite(userId: string) {
   const token = await takePendingInvite();
   if (!token) return;
 
   try {
     await joinLeagueWithToken(token);
+    // The strongest case for the home screen shortcut: somebody who followed a
+    // link on their phone and has just landed in a league. Offered only after the
+    // join succeeds, so a stale or spent invite never produces a welcome sheet.
+    await offerHomeScreenPrompt(userId);
   } catch {
     // Deliberately ignored; see above.
   }
@@ -46,6 +56,7 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const [session, setSession] = useState<Session | null>(null);
   const [fontsLoaded] = useFonts({ Poppins_600SemiBold });
+  const homeScreenPrompt = useHomeScreenPrompt();
 
   useEffect(() => {
     (async () => {
@@ -64,7 +75,7 @@ export default function TabLayout() {
       // see it on match cards. Once per session, not per screen.
       if (session?.user) {
         syncMyAvatar();
-        redeemInvite();
+        redeemInvite(session.user.id);
         // Marks the Profile tab when this member has no name yet, which in
         // practice means they signed up with an email address rather than Google.
         // Independent of syncMyAvatar, which only ever writes a photo — the name
@@ -79,7 +90,7 @@ export default function TabLayout() {
       setSession(session);
       if (session?.user) {
         syncMyAvatar();
-        redeemInvite();
+        redeemInvite(session.user.id);
         refreshProfileSetup();
       } else {
         // Signing out has to clear it, or the mark would still be sitting on a
@@ -99,6 +110,15 @@ export default function TabLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       {session && session.user ? <AppTabs /> : <LoginScreen />}
+      {/* One sheet for the whole app, so every join path can raise it — Browse
+          after a seat or a league, and redeemInvite after a link. */}
+      {homeScreenPrompt ? (
+        <HomeScreenSheet
+          visible
+          platform={homeScreenPrompt}
+          onClose={dismissHomeScreenPrompt}
+        />
+      ) : null}
     </ThemeProvider>
   );
 }

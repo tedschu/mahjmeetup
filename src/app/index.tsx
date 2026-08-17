@@ -4,7 +4,6 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Vie
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrowseFilterBar, defaultFilters, type BrowseFilters } from '@/components/browse-filters';
-import { HomeScreenSheet } from '@/components/home-screen-sheet';
 import { ProfileSetupBanner } from '@/components/profile-setup-banner';
 import { GradientButton, SolidButton } from '@/components/button';
 import { LeagueCard } from '@/components/league-card';
@@ -32,11 +31,7 @@ import {
   type Match,
 } from '@/lib/matches';
 import { fetchPublicLeagues, joinPublicLeague, type PublicLeague } from '@/lib/leagues';
-import {
-  homeScreenPromptFor,
-  rememberHomeScreenPrompt,
-  type MobilePlatform,
-} from '@/lib/home-screen-prompt';
+import { offerHomeScreenPrompt } from '@/hooks/use-home-screen-prompt';
 import { fetchMyHome } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 
@@ -192,12 +187,6 @@ export default function BrowseMatchesScreen() {
   const [busyMatchId, setBusyMatchId] = useState<string | null>(null);
   const [isProposing, setIsProposing] = useState(false);
   /**
-   * Set to a platform only when the home screen sheet should open, which is once
-   * ever, on a phone, just after this member's first join. All of that is decided
-   * in home-screen-prompt.ts; here it is simply null or not.
-   */
-  const [homeScreenPlatform, setHomeScreenPlatform] = useState<MobilePlatform | null>(null);
-  /**
    * The match being edited, opened from its detail sheet.
    *
    * Editing used to live only on My Matches, on the reasoning that Browse is for
@@ -255,19 +244,13 @@ export default function BrowseMatchesScreen() {
   }, [load]);
 
   /**
-   * Offers the home screen shortcut, at most once per member.
-   *
-   * Called only after a join has actually succeeded, so a failed tap never
-   * produces a congratulatory sheet. Marked as shown before it opens rather than
-   * after it closes: if the member navigates away instead of dismissing it, it
-   * still counts as asked.
+   * Offers the home screen shortcut after a successful join. The sheet itself is
+   * rendered by the root layout, because the invite-link path raises it too — see
+   * useHomeScreenPrompt.
    */
   const maybePromptHomeScreen = useCallback(async () => {
     if (!userId) return;
-    const platform = await homeScreenPromptFor(userId);
-    if (!platform) return;
-    await rememberHomeScreenPrompt(userId);
-    setHomeScreenPlatform(platform);
+    await offerHomeScreenPrompt(userId);
   }, [userId]);
 
   // Refetch rather than patching local state: the seat triggers may also have
@@ -479,17 +462,6 @@ export default function BrowseMatchesScreen() {
             await load();
           }}
         />
-
-        {/* Opens once, on a phone, right after this member's first join. Rendered
-            only when a platform was decided, so the sheet never has to cope with
-            not knowing which set of steps to show. */}
-        {homeScreenPlatform ? (
-          <HomeScreenSheet
-            visible
-            platform={homeScreenPlatform}
-            onClose={() => setHomeScreenPlatform(null)}
-          />
-        ) : null}
       </SafeAreaView>
     </ThemedView>
   );

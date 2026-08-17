@@ -29,8 +29,7 @@ export type Mappable = {
  * street address given" and then offers directions anyway contradicts itself, and
  * in practice the pair always arrive together: coordinates are only ever resolved
  * for a venue picked from the suggestions, which is the same moment the address is
- * filled in. Where they do both exist, the coordinates still make the better link
- * — see below.
+ * filled in.
  */
 export function canMap(place: Mappable) {
   return Boolean(place.location_detail);
@@ -40,16 +39,26 @@ export function canMap(place: Mappable) {
  * Where to send someone who wants directions. Only meaningful when `canMap` is
  * true; callers check that first.
  *
- * Coordinates win when the venue was picked from the suggestions, because they
- * drop a pin on the exact building rather than trusting Maps to re-resolve a
- * string it already resolved once. An address without a position falls back to
- * searching for the text, which Maps handles well because it is a real address.
+ * Searches for the venue's name and address as text, which lands on the place
+ * itself — "The Beer Cellar", with its hours, photos and reviews.
+ *
+ * This used to prefer the stored coordinates, on the reasoning that a position is
+ * more exact than a string Maps has to re-resolve. That was wrong in a way only
+ * visible on the screen: `query=41.88,-88.30` drops an anonymous pin labelled with
+ * the numbers, so a member tapping "Open in Google Maps" for a named pub got a
+ * blank marker in a field. Exactness was never the problem — Maps resolves a real
+ * street address perfectly well — and identifying the destination matters more than
+ * pinning it to the metre.
+ *
+ * The name goes first because it is what disambiguates: an address alone can land
+ * on the building rather than the business inside it.
+ *
+ * A place id would be better still — `query_place_id` names the exact
+ * establishment with no searching — but ids are not stored. Places autocomplete
+ * returns one and it is used only to look up coordinates, then dropped. Persisting
+ * it would be the proper fix if this is ever wrong.
  */
 export function mapsUrlFor(place: Mappable) {
-  if (typeof place.latitude === 'number' && typeof place.longitude === 'number') {
-    return `${SearchUrl}${place.latitude},${place.longitude}`;
-  }
-
   const query = place.location_detail
     ? `${place.location}, ${place.location_detail}`
     : place.location;
