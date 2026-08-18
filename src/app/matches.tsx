@@ -19,7 +19,7 @@ import { Ribbon } from '@/components/ribbon';
 import { ScoreEntrySheet } from '@/components/score-entry-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, OnAccent, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchSessionAttendance, setAttendance, type Availability } from '@/lib/attendance';
 import {
@@ -202,18 +202,23 @@ function RsvpButtons({
           ['out', "Can't make it", 'close', onAway],
         ] as const
       ).map(([value, label, icon, press]) => {
-        const chosen = going === value;
-        // Green for coming, the danger red for not — the two answers people scan
-        // for rather than read. Only the chosen one is coloured; an unanswered
-        // pair of coloured chips would look like a decision already taken.
-        const tone = value === 'in' ? theme.going : theme.danger;
-        // Filled in its own colour once chosen, rather than the yellow
-        // highlight the rest of the app uses for a selected chip: the
-        // answer is the state here, and green-for-going reads before any
-        // label does. The label rides `onAccentButton`, which is white on
-        // the light theme's deep fill and dark on the dark theme's light
-        // one — the same inversion the solid buttons use, and the reason
-        // neither ends up as white-on-mint. 
+        const chosen = (going ?? 'in') === value;
+        /**
+         * Going is shown as chosen until somebody says otherwise, because it is
+         * not merely the assumption — joining the league was the commitment, and
+         * this control exists to take it back rather than to make it. An unmarked
+         * pair would ask a question that has already been answered.
+         *
+         * Each state carries its own ink because the two fills differ in weight:
+         * the green is pale and takes the dark ink, the red is strong and takes
+         * the button ink, which inverts by scheme.
+         */
+        const tone =
+          value === 'in'
+            ? { fill: theme.going, ink: OnAccent }
+            : { fill: theme.danger, ink: theme.onAccentButton };
+        // Filled rather than outlined once chosen: the answer is the state here,
+        // and the colour reads before the label does.
         return (
           <Pressable
             key={value}
@@ -226,18 +231,18 @@ function RsvpButtons({
               style={[
                 styles.rsvpChip,
                 {
-                  borderColor: chosen ? tone : theme.rule,
-                  backgroundColor: chosen ? tone : undefined,
+                  borderColor: chosen ? tone.fill : theme.rule,
+                  backgroundColor: chosen ? tone.fill : undefined,
                 },
               ]}>
               <Icon
                 name={icon}
                 size={14}
-                color={chosen ? theme.onAccentButton : theme.textSecondary}
+                color={chosen ? tone.ink : theme.textSecondary}
               />
               <ThemedText
                 type="label"
-                style={chosen ? { color: theme.onAccentButton } : undefined}
+                style={chosen ? { color: tone.ink } : undefined}
                 themeColor={chosen ? undefined : 'textSecondary'}>
                 {label}
               </ThemedText>

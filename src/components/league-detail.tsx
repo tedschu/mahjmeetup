@@ -1102,8 +1102,13 @@ export function LeagueDetail({
                       <ActivityIndicator />
                     ) : (
                       (['in', 'out'] as const).map((choice) => {
-                        const chosen = here(session).mine === choice;
-                        const tone = choice === 'in' ? theme.going : theme.danger;
+                        // See the same control on My Matches: going is shown as
+                        // chosen until it is taken back.
+                        const chosen = (here(session).mine ?? 'in') === choice;
+                        const tone =
+                          choice === 'in'
+                            ? { fill: theme.going, ink: OnAccent }
+                            : { fill: theme.danger, ink: theme.onAccentButton };
                         return (
                           <Pressable
                             key={choice}
@@ -1114,18 +1119,18 @@ export function LeagueDetail({
                               style={[
                                 styles.rsvpChip,
                                 {
-                                  borderColor: chosen ? tone : theme.rule,
-                                  backgroundColor: chosen ? tone : undefined,
+                                  borderColor: chosen ? tone.fill : theme.rule,
+                                  backgroundColor: chosen ? tone.fill : undefined,
                                 },
                               ]}>
                               <Icon
                                 name={choice === 'in' ? 'check' : 'close'}
                                 size={14}
-                                color={chosen ? theme.onAccentButton : theme.textSecondary}
+                                color={chosen ? tone.ink : theme.textSecondary}
                               />
                               <ThemedText
                                 type="label"
-                                style={chosen ? { color: theme.onAccentButton } : undefined}
+                                style={chosen ? { color: tone.ink } : undefined}
                                 themeColor={chosen ? undefined : 'textSecondary'}>
                                 {choice === 'in' ? 'Going' : "Can't make it"}
                               </ThemedText>

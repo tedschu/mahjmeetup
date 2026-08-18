@@ -90,14 +90,18 @@ export const Colors = {
     danger: '#c4453a',
     /**
      * Coming. A semantic state rather than a brand colour, added the same way
-     * `danger` was and for the same reason: "yes I am there" and "something went
-     * wrong" are the two answers no palette of teals and ambers can carry on its
-     * own, and both have to be legible as type.
+     * `danger` was and for the same reason: "I am there" is an answer no palette
+     * of teals and ambers carries on its own.
      *
-     * Deep enough to set 11px labels in — 5.3:1 on a card, and still 4.6:1 on the
-     * yellow highlight a chosen chip sits on, which the brighter greens are not.
+     * A fill, and a pale one, following the same rule as the rest of the palette —
+     * so the label on it is `onAccent`, the dark ink, at 12.1:1. It started as a
+     * deep green with white type and had to be lightened: going is the default
+     * state, so this sits on every meetup row on the screen at once, and at that
+     * frequency a saturated green stops being a signal and becomes the weather.
+     * Against the card it is a quiet 1.5:1, which is what a resting default should
+     * be — the red beside it is the one worth noticing, and stays strong.
      */
-    going: '#1f7a4d',
+    going: '#9ae0b5',
     onAccent: OnAccent,
     /**
      * A solid teal button, and the type on it.
@@ -133,8 +137,8 @@ export const Colors = {
     accentAlt: '#a692ff',
     accentAltInk: '#bcacff',
     danger: '#ff8a7e',
-    /** See the light theme. Lightened rather than deepened, at 8.4:1 on the card. */
-    going: '#5fd39b',
+    /** Pale in this scheme too, so the dark ink on it holds. 9.2:1 on the card. */
+    going: '#7fd9a8',
     /** Still dark: the fills it sits on are light in this scheme too. */
     onAccent: OnAccent,
     /**
