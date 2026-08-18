@@ -321,26 +321,40 @@ export async function fetchSessions(seasonId: string): Promise<LeagueSession[]> 
   });
 }
 
-export async function createSession(
+export type NewSession = {
+  sequence: number;
+  date_time: string;
+  location: string;
+  location_detail: string | null;
+  /** Written together or not at all; Browse measures a league's distance here. */
+  latitude: number | null;
+  longitude: number | null;
+};
+
+export async function createSession(seasonId: string, session: NewSession): Promise<string> {
+  const [id] = await createSessions(seasonId, [session]);
+  return id;
+}
+
+/**
+ * Adds a run of meetups in one statement — what a repeating schedule expands to.
+ *
+ * One insert rather than a loop of them, so a season is created whole or not at
+ * all. `league_sessions` is unique on `(season_id, sequence)`, and a partial run
+ * that failed halfway would leave the organizer to work out which half landed
+ * before they could safely try again.
+ */
+export async function createSessions(
   seasonId: string,
-  session: {
-    sequence: number;
-    date_time: string;
-    location: string;
-    location_detail: string | null;
-    /** Written together or not at all; Browse measures a league's distance here. */
-    latitude: number | null;
-    longitude: number | null;
-  }
-): Promise<string> {
+  sessions: NewSession[]
+): Promise<string[]> {
   const { data, error } = await supabase
     .from('league_sessions')
-    .insert({ season_id: seasonId, ...session })
-    .select('id')
-    .single();
+    .insert(sessions.map((session) => ({ season_id: seasonId, ...session })))
+    .select('id');
 
   if (error) throw error;
-  return data.id;
+  return (data ?? []).map((row) => row.id);
 }
 
 export async function deleteSession(sessionId: string) {

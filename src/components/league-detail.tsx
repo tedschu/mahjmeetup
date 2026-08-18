@@ -21,7 +21,7 @@ import { CardShadow, LeagueColors, OnAccent, Radius, Spacing } from '@/constants
 import { useTheme } from '@/hooks/use-theme';
 import {
   createSeason,
-  createSession,
+  createSessions,
   deleteLeague,
   deleteSession,
   drawSession,
@@ -47,6 +47,13 @@ import {
 import { type Coordinates } from '@/lib/geo';
 import { formatWhen, parseTimeOfDay, SEATS_PER_MATCH } from '@/lib/matches';
 import { fetchPlaceLocation } from '@/lib/places';
+import {
+  expandDates,
+  Frequencies,
+  formatDateOnly,
+  MaxOccurrences,
+  type Frequency,
+} from '@/lib/recurrence';
 
 /** Local wall-clock date, matching the match sheet's field. */
 function todayISO() {
@@ -121,6 +128,15 @@ export function LeagueDetail({
   const [isAddingSession, setIsAddingSession] = useState(false);
   const [sessionDate, setSessionDate] = useState(todayISO());
   const [sessionTime, setSessionTime] = useState('7:00 pm');
+  /**
+   * How often the meetup repeats, and when it stops. A league that meets every
+   * Tuesday should not have to add its season one Tuesday at a time.
+   *
+   * The pattern is expanded into ordinary meetups at the moment it is submitted —
+   * there is no series to belong to afterwards. See lib/recurrence.
+   */
+  const [sessionRepeat, setSessionRepeat] = useState<Frequency>('once');
+  const [sessionUntil, setSessionUntil] = useState('');
   const [sessionDetail, setSessionDetail] = useState<string | null>(null);
   const [sessionVenue, setSessionVenue] = useState('');
   /**
@@ -231,33 +247,73 @@ export function LeagueDetail({
     }
   };
 
+  /**
+   * What the form would create if it were submitted now — one date for a one-off,
+   * the whole run for a repeat.
+   *
+   * Computed during render rather than on submit so the form can say how many
+   * meetups the button is about to make. Pure: it reads the three fields and does
+   * calendar arithmetic, with no clock of its own.
+   */
+  const plan = expandDates(sessionDate, sessionUntil, sessionRepeat);
+
   const addSession = async () => {
     if (!seasonId) return;
-    const at = toTimestamp(sessionDate, sessionTime);
-    if (!at || sessionVenue.trim().length === 0) {
-      setError('Give the meetup a date, a time like 6:30 pm, and a venue.');
+
+    // Every date the pattern lands on. A one-off is the same code path with a
+    // single date in it, so there is no second way to add a meetup to get wrong.
+    const stamps = plan.dates
+      .map((date) => toTimestamp(date, sessionTime))
+      .filter((stamp): stamp is string => stamp !== null);
+
+    if (stamps.length === 0 || stamps.length !== plan.dates.length) {
+      setError(
+        sessionRepeat === 'once'
+          ? 'Give the meetup a date and a time like 6:30 pm.'
+          : 'Give the run a first date, a time like 6:30 pm, and an end date on or after the first.'
+      );
+      return;
+    }
+    if (sessionVenue.trim().length === 0) {
+      setError('Give the meetup a venue.');
       return;
     }
 
+    /**
+     * Carries on past the highest number already used rather than counting the
+     * rows. `league_sessions` is unique on `(season_id, sequence)`, so a season
+     * whose second meetup was deleted would otherwise hand the next one a number
+     * that is still taken and have the whole insert refused.
+     */
+    const nextSequence =
+      sessions.reduce((highest, session) => Math.max(highest, session.sequence), 0) + 1;
+
     setBusy('session');
     try {
-      await createSession(seasonId, {
-        // Sequence follows the existing meetups, so the list stays in order.
-        sequence: sessions.length + 1,
-        date_time: at,
-        location: sessionVenue.trim(),
-        location_detail: sessionDetail,
-        latitude: sessionAt?.latitude ?? null,
-        longitude: sessionAt?.longitude ?? null,
-      });
+      await createSessions(
+        seasonId,
+        stamps.map((at, index) => ({
+          sequence: nextSequence + index,
+          date_time: at,
+          // One venue for the whole run, which is what a league schedule
+          // overwhelmingly is. Moving one week to a different room is then an
+          // edit to that meetup rather than a reason not to use this.
+          location: sessionVenue.trim(),
+          location_detail: sessionDetail,
+          latitude: sessionAt?.latitude ?? null,
+          longitude: sessionAt?.longitude ?? null,
+        }))
+      );
       setIsAddingSession(false);
       setSessionVenue('');
       setSessionDetail(null);
       setSessionAt(null);
+      setSessionRepeat('once');
+      setSessionUntil('');
       await reloadSessions();
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not add that meetup.');
+      setError(cause instanceof Error ? cause.message : 'Could not add those meetups.');
     } finally {
       setBusy(null);
     }
@@ -665,6 +721,62 @@ export function LeagueDetail({
                   ]}
                 />
               </View>
+              {/* Repeating, for a league that meets on a schedule rather than
+                  whenever someone gets round to it. Chips rather than a picker:
+                  four choices, and the whole form is already this shape. */}
+              <View style={styles.chips}>
+                {Frequencies.map((option) => {
+                  const selected = option.value === sessionRepeat;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      onPress={() => setSessionRepeat(option.value)}
+                      style={({ pressed }) => pressed && styles.pressed}>
+                      <ThemedView
+                        type={selected ? 'backgroundSelected' : 'backgroundElement'}
+                        style={[styles.chip, { borderColor: selected ? tint : theme.rule }]}>
+                        <ThemedText type="label" themeColor={selected ? 'text' : 'textSecondary'}>
+                          {option.label}
+                        </ThemedText>
+                      </ThemedView>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {sessionRepeat === 'once' ? null : (
+                <View style={styles.field}>
+                  <ThemedText type="label" themeColor="textSecondary">
+                    Repeat until
+                  </ThemedText>
+                  <TextInput
+                    value={sessionUntil}
+                    onChangeText={setSessionUntil}
+                    placeholder="2026-12-19"
+                    placeholderTextColor={theme.placeholder}
+                    style={[styles.input, { color: theme.text, borderColor: theme.rule }]}
+                  />
+                  {/* Says what will happen before it happens, because the button
+                      is about to create rows in bulk and the only way to undo
+                      forty of them is one at a time. */}
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {plan.dates.length === 0
+                      ? 'Add an end date on or after the first meetup.'
+                      : `${plan.dates.length} ${
+                          plan.dates.length === 1 ? 'meetup' : 'meetups'
+                        }, ${formatDateOnly(plan.dates[0])} to ${formatDateOnly(
+                          plan.dates[plan.dates.length - 1]
+                        )}, all at the same time and venue.`}
+                    {plan.capped ? ` Stops at ${MaxOccurrences} — run it again to carry on.` : ''}
+                    {plan.skipped > 0
+                      ? ` ${plan.skipped} ${
+                          plan.skipped === 1 ? 'month has' : 'months have'
+                        } no such day and ${plan.skipped === 1 ? 'is' : 'are'} skipped.`
+                      : ''}
+                  </ThemedText>
+                </View>
+              )}
+
               {/* Autocompleted rather than typed, so the meetup carries a
                   position — which is how far away Browse says this league is. */}
               <PlaceAutocompleteInput
@@ -687,7 +799,11 @@ export function LeagueDetail({
               <Pressable onPress={addSession} style={({ pressed }) => pressed && styles.pressed}>
                 <View style={[styles.primaryButton, { backgroundColor: tint }]}>
                   <ThemedText type="label" style={styles.primaryLabel}>
-                    {busy === 'session' ? 'Adding…' : 'Add meetup'}
+                    {busy === 'session'
+                      ? 'Adding…'
+                      : plan.dates.length > 1
+                        ? `Add ${plan.dates.length} meetups`
+                        : 'Add meetup'}
                   </ThemedText>
                 </View>
               </Pressable>
