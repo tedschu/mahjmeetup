@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 
+import type { Contact } from './contact';
 import { formatFullWhen } from './matches';
 
 /**
@@ -96,6 +97,7 @@ export function changeNotice({
   changes,
   after,
   where,
+  from,
 }: {
   /** What moved, named the way the recipient knows it. */
   title: string;
@@ -103,6 +105,17 @@ export function changeNotice({
   after: EventDetails;
   /** Where in the app to look — "My Matches" for a table, the league for a meetup. */
   where: string;
+  /**
+   * Whoever made the change, named and reachable in the body of the message.
+   *
+   * The address it is sent from would carry the same information for most people,
+   * but not reliably: it goes out through BCC, some clients hide the sender on a
+   * phone, and a member who signed in with Google may be writing from an address
+   * nobody in the group recognises. A plan moving is also exactly when somebody
+   * needs to ask "can I still make it?" — so the person who moved it is stated
+   * outright, with a phone number when they have given one.
+   */
+  from: Contact;
 }) {
   const lines = [
     `${title} has changed.`,
@@ -120,9 +133,14 @@ export function changeNotice({
     );
   }
 
+  lines.push(`Details and everyone who is coming: ${AppOrigin}`, `Look under ${where}.`, '');
+
+  // Always, even when there is only a name to give: "changed by Ted" is worth
+  // more to the reader than an unattributed announcement.
+  const reach = [from.email, from.phone].filter(Boolean);
   lines.push(
-    `Details and everyone who is coming: ${AppOrigin}`,
-    `Look under ${where}.`,
+    from.name ? `Changed by ${from.name}.` : 'Changed by the organizer.',
+    ...(reach.length > 0 ? [`Questions: ${reach.join(' · ')}`] : []),
     '',
     '— SEVEN BAM'
   );

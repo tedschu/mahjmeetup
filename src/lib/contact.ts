@@ -70,6 +70,40 @@ export async function fetchMyEmail(): Promise<string | null> {
   return user?.email ?? null;
 }
 
+/**
+ * The signed-in member's own card, for signing a message they are about to send.
+ *
+ * Assembled from three places because that is where the pieces live: the name off
+ * `profiles`, the address off the auth account, the phone out of
+ * `profile_contacts` — which has no row at all for somebody who never gave one,
+ * hence `maybeSingle`.
+ *
+ * Never throws. A change of plan still has to go out for a host whose profile is
+ * half-filled; the worst case is a note signed with less than it might have been.
+ */
+export async function fetchMyContact(): Promise<Contact> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { name: null, email: null, phone: null };
+
+    const [profile, contact] = await Promise.all([
+      supabase.from('profiles').select('name').eq('id', user.id).maybeSingle(),
+      supabase.from('profile_contacts').select('phone').eq('profile_id', user.id).maybeSingle(),
+    ]);
+
+    return {
+      name: profile.data?.name ?? null,
+      email: user.email ?? null,
+      phone: contact.data?.phone ?? null,
+    };
+  } catch {
+    return { name: null, email: null, phone: null };
+  }
+}
+
 /** Seated players, for the host of the match. Empty for anyone else. */
 export async function fetchMatchPlayerEmails(matchId: string): Promise<Recipient[]> {
   const { data, error } = await supabase.rpc('match_player_contacts', { p_match_id: matchId });

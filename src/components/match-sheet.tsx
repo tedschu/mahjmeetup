@@ -21,6 +21,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { changeNotice, changesBetween, type Change } from '@/lib/change-notice';
 import {
   fetchMatchPlayerEmails,
+  fetchMyContact,
   fetchMyEmail,
   openGroupEmail,
   type Recipient,
@@ -218,6 +219,7 @@ export function MatchSheet({
         location_detail: locationDetail?.trim() || null,
       },
       where: 'My Matches',
+      from: await fetchMyContact(),
     });
 
     const { omitted } = await openGroupEmail({

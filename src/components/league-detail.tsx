@@ -45,6 +45,7 @@ import { changeNotice, changesBetween, type Change } from '@/lib/change-notice';
 import {
   fetchLeagueMemberEmails,
   fetchLeagueOrganizerContact,
+  fetchMyContact,
   fetchMyEmail,
   openGroupEmail,
   type Contact,
@@ -429,6 +430,7 @@ export function LeagueDetail({
         location_detail: sessionDetail,
       },
       where: 'My Matches',
+      from: await fetchMyContact(),
     });
 
     const { omitted } = await openGroupEmail({
