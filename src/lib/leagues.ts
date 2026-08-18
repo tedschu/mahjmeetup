@@ -48,6 +48,12 @@ export type PublicLeague = {
   /** Null for a meetup whose venue was typed rather than picked. */
   next_latitude: number | null;
   next_longitude: number | null;
+  /**
+   * When the league was started, so Browse can mark a new one. It comes through
+   * `public_leagues()` rather than off the table: a league you have not joined is
+   * invisible to RLS, so the function is the only place this can be read from.
+   */
+  created_at: string;
 };
 
 /** A league plus where the signed-in member stands in it. */

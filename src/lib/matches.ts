@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 export const SEATS_PER_MATCH = 4;
 
 const MATCH_SELECT = `
-  id, date_time, location, location_detail, notes, supplies_provided, status, host_id,
+  id, date_time, created_at, location, location_detail, notes, supplies_provided, status, host_id,
   latitude, longitude, league_id, session_id, table_number,
   league:leagues (id, name, color),
   host:profiles!matches_host_id_fkey (id, name),
@@ -14,6 +14,8 @@ const MATCH_SELECT = `
 export type Match = {
   id: string;
   date_time: string;
+  /** When the match was proposed, which is what makes a card new rather than soon. */
+  created_at: string;
   /** The venue's name, and the only part a card leads with. */
   location: string;
   /** Street address, when the venue came from the place lookup. */
@@ -75,6 +77,63 @@ export const AssumedMatchHours = 3;
 export function hasFinished(match: Match, now = Date.now()) {
   if (match.status === 'completed' || match.status === 'canceled') return true;
   return new Date(match.date_time).getTime() + AssumedMatchHours * 60 * 60 * 1000 < now;
+}
+
+/**
+ * How long a card's timing labels last, on either side of now.
+ *
+ * One window rather than two, because "posted in the last two days" and "starting
+ * in the next two days" are the same span read backwards and forwards. Two days
+ * is what makes both true of somebody who checks Browse every few days: long
+ * enough that Friday's new table is still flagged on Sunday, short enough that a
+ * table three weekends out is not called imminent.
+ */
+export const NoticeWindowHours = 48;
+
+export type TimingNote = 'soon' | 'new';
+
+/**
+ * Which of the two timing labels something in Browse should carry, or null — most
+ * cards are neither new nor imminent, and a label on every card is a label on
+ * none of them.
+ *
+ * `soon` wins when both are true, because it is the one that changes what you do:
+ * a table tomorrow night is a yes-or-no you owe an answer on this evening, while
+ * "just added" only says you have not seen it before. At most one either way; the
+ * rows these sit in already carry a date, a league and a standing.
+ *
+ * Takes timestamps rather than a match, so a league can put the same rule on its
+ * next meetup. Both are nullable for that caller's sake — a league with nothing
+ * scheduled has no start, and `public_leagues()` does not return a creation date.
+ */
+export function timingNote(
+  startsAt: string | null,
+  createdAt: string | null,
+  now: number
+): TimingNote | null {
+  const window = NoticeWindowHours * 60 * 60 * 1000;
+
+  // Ahead, not merely close. A game that started an hour ago is under way, and
+  // "happening soon" is the one thing it is not.
+  if (startsAt !== null) {
+    const startsIn = new Date(startsAt).getTime() - now;
+    if (startsIn > 0 && startsIn <= window) return 'soon';
+  }
+
+  if (createdAt !== null && now - new Date(createdAt).getTime() <= window) return 'new';
+
+  return null;
+}
+
+/**
+ * The same rule for a match, with the one thing a match can be that a date cannot:
+ * over. Nothing about a game that has been played, called off, or simply gone by
+ * is news, and none of it is about to happen — so a card in that state stays bare
+ * even if it was proposed this morning.
+ */
+export function matchTimingNote(match: Match, now: number) {
+  if (hasFinished(match, now)) return null;
+  return timingNote(match.date_time, match.created_at, now);
 }
 
 export function isSeated(match: Match, userId: string) {

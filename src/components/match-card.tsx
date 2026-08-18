@@ -7,7 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { CardShadow, LeagueColors, Radius, Spacing, type LeagueColor } from '@/constants/theme';
 import { useTheme, type Theme } from '@/hooks/use-theme';
 import { formatMiles } from '@/lib/geo';
-import { formatWhen, SEATS_PER_MATCH, type Match } from '@/lib/matches';
+import { formatWhen, matchTimingNote, SEATS_PER_MATCH, type Match } from '@/lib/matches';
 
 /**
  * Where the signed-in member stands in relation to a match. This is the one
@@ -100,6 +100,7 @@ export function MatchCard({
   userId,
   action,
   distance,
+  now,
   onEdit,
   detailAction,
 }: {
@@ -114,6 +115,17 @@ export function MatchCard({
    * every card for a group that types its venues.
    */
   distance?: number | null;
+  /**
+   * The instant the list was classified against, captured by the screen when it
+   * loaded — see `loadedAt` on My Matches for why the clock is not read here.
+   *
+   * Optional, and the timing label is the whole reason it exists: "Just added"
+   * and "Happening soon" are aimed at somebody scanning tables they have not seen
+   * before. On My Matches, where every row is a match you are already in, one is
+   * old news and the other is something you put in your own calendar — so that
+   * screen passes nothing and gets no label.
+   */
+  now?: number;
   /**
    * Opens the screen's edit sheet on this match. Given by screens that own one;
    * the detail sheet shows the control only to the host.
@@ -133,6 +145,7 @@ export function MatchCard({
   const [showDetail, setShowDetail] = useState(false);
   const standing = standingFor(match, userId);
   const { bar, ink, note, muted } = appearance(standing, theme);
+  const timing = now === undefined ? null : matchTimingNote(match, now);
 
   /**
    * Close, then hand over on the next frame. Presenting a modal in the same frame
@@ -203,6 +216,21 @@ export function MatchCard({
           <ThemedText type="defaultSemiBold" themeColor="textSecondary">
             {formatWhen(match.date_time)}
           </ThemedText>
+          {/* Beside the date rather than at the end of the row, because it is a
+              remark about the date — and because the end of this row is wherever
+              the league tag happens to leave off.
+
+              Amber for the imminent one: it is the palette's attention colour, and
+              the only louder option is `danger`, which means something went wrong.
+              Teal for the new one, the same ink the distance and Browse's own
+              eyebrow use — worth a look rather than worth hurrying over. */}
+          {timing ? (
+            <ThemedText
+              type="label"
+              style={{ color: timing === 'soon' ? theme.accentWarmInk : theme.accentInk }}>
+              {timing === 'soon' ? 'Happening soon' : 'Just added'}
+            </ThemedText>
+          ) : null}
           {/* Named and coloured, so you can tell at a glance which league a table
               belongs to rather than just that it belongs to one.
 

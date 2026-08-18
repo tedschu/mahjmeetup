@@ -517,6 +517,7 @@ export type Database = {
         Args: never
         Returns: {
           color: string
+          created_at: string
           id: string
           is_member: boolean
           max_members: number

@@ -180,6 +180,14 @@ export default function BrowseMatchesScreen() {
    */
   const [home, setHome] = useState<Coordinates | null>(null);
   const [leagues, setLeagues] = useState<PublicLeague[]>([]);
+  /**
+   * The instant the cards' timing labels are measured against, captured when the
+   * list loads rather than read while rendering — the same reasoning as `loadedAt`
+   * on My Matches. Tying it to the fetch also puts the boundary in the right
+   * place: this screen reloads on focus, which is exactly when "is this new, is
+   * this imminent" should be asked again.
+   */
+  const [loadedAt, setLoadedAt] = useState(() => Date.now());
   const [joiningLeagueId, setJoiningLeagueId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -216,6 +224,7 @@ export default function BrowseMatchesScreen() {
       // Swallowed on purpose: a directory that fails to load should not take the
       // list of matches down with it.
       setLeagues(await fetchPublicLeagues().catch(() => []));
+      setLoadedAt(Date.now());
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load matches.');
@@ -381,6 +390,7 @@ export default function BrowseMatchesScreen() {
                   <LeagueCard
                     league={row.league}
                     distance={row.distance}
+                    now={loadedAt}
                     busy={joiningLeagueId === row.league.id}
                     onJoin={() => joinLeague(row.league.id)}
                   />
@@ -404,6 +414,7 @@ export default function BrowseMatchesScreen() {
                   match={row.match}
                   userId={userId ?? ''}
                   distance={row.distance}
+                  now={loadedAt}
                   // Passed for every card; the sheet shows the control only to the
                   // host, and only while the match is still to be played.
                   onEdit={() => setEditingMatchId(row.match.id)}
