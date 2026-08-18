@@ -5,6 +5,7 @@ import { SolidButton } from './button';
 import { ThemedText } from './themed-text';
 
 import { PublicLeagueSheet } from '@/components/public-league-sheet';
+import { TimingChip } from '@/components/timing-chip';
 import { CardShadow, LeagueColors, Radius, Spacing, type LeagueColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatMiles } from '@/lib/geo';
@@ -42,12 +43,11 @@ export function LeagueCard({
    * A league has no date of its own — it is a season of them — so the closest
    * thing to "about to happen" is that its next meetup is.
    *
-   * The two land in different places, because they are remarks about different
-   * things: `soon` is about the meetup and sits on that line, while `new` is about
-   * the league and sits in the metadata row. That is not only tidiness — a league
-   * started this morning usually has no meetups scheduled yet, so a freshness
-   * label on the meetup line would be invisible on exactly the leagues that have
-   * it.
+   * Both states go to the one chip at the top of the card. An earlier version put
+   * "Meets soon" down on the meetup line, where it belonged logically and was
+   * invisible in practice — and a freshness label there would have been worse
+   * still, since a league started this morning usually has no meetups scheduled
+   * for it to sit beside.
    */
   const note = now === undefined ? null : timingNote(league.next_meetup, league.created_at, now);
 
@@ -67,6 +67,8 @@ export function LeagueCard({
         accessibilityRole="button"
         accessibilityLabel={`${league.name}, league with ${league.member_count} members. Open league details.`}
         style={({ pressed }) => [styles.body, pressed && styles.pressed]}>
+        {note ? <TimingChip label={note === 'soon' ? 'Meets soon' : 'Just added'} /> : null}
+
         <View style={styles.topRow}>
           <View style={styles.titleBlock}>
             {/* Says what kind of thing this is before the name does, since the
@@ -104,35 +106,13 @@ export function LeagueCard({
               You&apos;re in
             </ThemedText>
           ) : null}
-          {/* Teal, the same ink the match card gives its "Just added" — the two say
-              the same thing about different objects and should read as one label,
-              not two. */}
-          {note === 'new' ? (
-            <ThemedText type="label" style={{ color: theme.accentInk }}>
-              Just added
-            </ThemedText>
-          ) : null}
         </View>
 
         {league.next_meetup ? (
-          <View style={styles.nextRow}>
-            <ThemedText
-              type="small"
-              themeColor="textSecondary"
-              numberOfLines={1}
-              style={styles.nextMeetup}>
-              Next: {formatWhen(league.next_meetup)}
-              {league.next_location ? ` · ${league.next_location}` : ''}
-            </ThemedText>
-            {/* "Meets soon" rather than the match card's "Happening soon": what is
-                imminent is the meetup, not the league. Same amber, so the two read
-                as the same kind of remark down a mixed list. */}
-            {note === 'soon' ? (
-              <ThemedText type="label" style={{ color: theme.accentWarmInk }}>
-                Meets soon
-              </ThemedText>
-            ) : null}
-          </View>
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            Next: {formatWhen(league.next_meetup)}
+            {league.next_location ? ` · ${league.next_location}` : ''}
+          </ThemedText>
         ) : (
           <ThemedText type="small" themeColor="textSecondary">
             No meetups scheduled yet.
@@ -202,15 +182,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: Spacing.three,
-  },
-  nextRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  /** Yields to the label beside it, so a long venue truncates rather than pushing it off. */
-  nextMeetup: {
-    flexShrink: 1,
   },
   actionRow: {
     flexDirection: 'row',

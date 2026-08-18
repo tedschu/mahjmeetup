@@ -4,6 +4,7 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Avatar, EmptySeat } from '@/components/avatar';
 import { MatchDetailSheet } from '@/components/match-detail-sheet';
 import { ThemedText } from '@/components/themed-text';
+import { TimingChip } from '@/components/timing-chip';
 import { CardShadow, LeagueColors, Radius, Spacing, type LeagueColor } from '@/constants/theme';
 import { useTheme, type Theme } from '@/hooks/use-theme';
 import { formatMiles } from '@/lib/geo';
@@ -187,6 +188,12 @@ export function MatchCard({
           match.players.length
         } of ${SEATS_PER_MATCH} seats taken. Open match details.`}
         style={({ pressed }) => [styles.body, pressed && styles.pressed]}>
+        {/* Above the venue, where it is the first thing in the card rather than
+            the last thing in a row of small print. */}
+        {timing ? (
+          <TimingChip label={timing === 'soon' ? 'Happening soon' : 'Just added'} />
+        ) : null}
+
         <View style={styles.topRow}>
           <View style={styles.titleBlock}>
             {/* Two lines: a real venue name plus a town does not fit one at phone
@@ -216,21 +223,6 @@ export function MatchCard({
           <ThemedText type="defaultSemiBold" themeColor="textSecondary">
             {formatWhen(match.date_time)}
           </ThemedText>
-          {/* Beside the date rather than at the end of the row, because it is a
-              remark about the date — and because the end of this row is wherever
-              the league tag happens to leave off.
-
-              Amber for the imminent one: it is the palette's attention colour, and
-              the only louder option is `danger`, which means something went wrong.
-              Teal for the new one, the same ink the distance and Browse's own
-              eyebrow use — worth a look rather than worth hurrying over. */}
-          {timing ? (
-            <ThemedText
-              type="label"
-              style={{ color: timing === 'soon' ? theme.accentWarmInk : theme.accentInk }}>
-              {timing === 'soon' ? 'Happening soon' : 'Just added'}
-            </ThemedText>
-          ) : null}
           {/* Named and coloured, so you can tell at a glance which league a table
               belongs to rather than just that it belongs to one.
 
