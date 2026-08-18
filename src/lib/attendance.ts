@@ -16,15 +16,14 @@ export type SessionAttendance = {
   mine: Availability | null;
   /** Members of the league, closed accounts excluded. */
   roster: number;
+  /**
+   * Everyone who has not said they are out — which is everyone, until somebody
+   * says otherwise. Joining a league is the commitment; the only news is when a
+   * member cannot make one of its meetups.
+   */
   going: number;
   not_going: number;
-  /**
-   * Nobody has said either way. Counted apart from `going` on purpose: the
-   * interface defaults to coming, so without this an organizer cannot tell nine
-   * people confirmed from seven confirmed and two who never opened the app.
-   */
-  no_answer: number;
-  /** What a draw would produce right now, counting silence as coming. */
+  /** What a draw would produce right now. */
   expected_tables: number;
 };
 
@@ -33,7 +32,6 @@ export const EmptyAttendance: SessionAttendance = {
   roster: 0,
   going: 0,
   not_going: 0,
-  no_answer: 0,
   expected_tables: 0,
 };
 
@@ -54,7 +52,7 @@ export async function fetchSessionAttendance(
   const [summary, mine] = await Promise.all([
     supabase
       .from('session_attendance_summary')
-      .select('session_id, roster, going, not_going, no_answer, expected_tables')
+      .select('session_id, roster, going, not_going, expected_tables')
       .in('session_id', sessionIds),
     supabase
       .from('session_attendance')
@@ -78,7 +76,6 @@ export async function fetchSessionAttendance(
       roster: row.roster ?? 0,
       going: row.going ?? 0,
       not_going: row.not_going ?? 0,
-      no_answer: row.no_answer ?? 0,
       expected_tables: row.expected_tables ?? 0,
     };
   }

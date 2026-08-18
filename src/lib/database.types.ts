@@ -536,6 +536,7 @@ export type Database = {
       }
       session_attendance_summary: {
         Row: {
+          confirmed: number | null
           expected_tables: number | null
           going: number | null
           no_answer: number | null

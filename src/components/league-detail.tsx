@@ -1076,15 +1076,14 @@ export function LeagueDetail({
                       }`}
                 </ThemedText>
 
-                {/* Three numbers, because "going" alone cannot tell nine
-                    confirmed from seven confirmed and two who never looked — and
-                    that is the difference that decides whether to find a sub.
-                    Organizers only: a member needs to answer for themselves, not
-                    to audit the roster. */}
+                {/* Everyone in the league is in until they say otherwise, so this
+                    is the roster minus the people who cannot make it. Organizers
+                    only: a member answers for themselves rather than auditing the
+                    roster. */}
                 {isOrganizer ? (
                   <ThemedText type="small" themeColor="textSecondary">
-                    {here(session).going} in · {here(session).not_going} out ·{' '}
-                    {here(session).no_answer} no answer
+                    {here(session).going} in
+                    {here(session).not_going > 0 ? ` · ${here(session).not_going} out` : ''}
                   </ThemedText>
                 ) : null}
 
@@ -1220,10 +1219,42 @@ export function LeagueDetail({
             </View>
           ))}
 
-          {sessions.some((session) => session.tables > 0) ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              Drawn tables show up in My Matches for everyone seated at them.
-            </ThemedText>
+          {/* The controls above are glyphs on 34px buttons, which is fine for the
+              pencil and the bin and no use at all for the other two: nobody has
+              ever seen a "draw the tables" icon before, and an organizer who does
+              not press it never gets a season. So the legend shows the same mark
+              beside what it does, rather than describing it in words that leave
+              the reader matching prose to pictures. Organizers only — these are
+              the only buttons a member cannot press. */}
+          {canRun && sessions.length > 0 ? (
+            <View style={styles.legend}>
+              <View style={styles.legendRow}>
+                <ThemedView
+                  type="backgroundElement"
+                  style={[styles.iconButton, { backgroundColor: tint, borderColor: tint }]}>
+                  <Icon name="shuffle" color={OnAccent} size={18} />
+                </ThemedView>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.legendText}>
+                  <ThemedText type="smallBold">Draw the tables.</ThemedText> Shuffles
+                  everyone who is coming into tables of four and puts each table into
+                  their My Matches. Press it again to reshuffle — until a table has
+                  been played, after which it is refused so scores cannot be erased.
+                </ThemedText>
+              </View>
+
+              <View style={styles.legendRow}>
+                <ThemedView
+                  type="backgroundElement"
+                  style={[styles.iconButton, { borderColor: theme.rule }]}>
+                  <Icon name="people" color={theme.textSecondary} size={18} />
+                </ThemedView>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.legendText}>
+                  <ThemedText type="smallBold">Ask for subs.</ThemedText> Offers the
+                  empty seats at this meetup&apos;s short tables to people outside the
+                  league, who find them in Browse. Press it again to stop.
+                </ThemedText>
+              </View>
+            </View>
           ) : null}
         </ThemedView>
       ) : null}
@@ -1478,6 +1509,19 @@ const styles = StyleSheet.create({
   },
   sessionText: {
     flex: 1,
+  },
+  /** Ruled off from the meetups, because it explains them rather than being one. */
+  legend: {
+    marginTop: Spacing.two,
+    gap: Spacing.two,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  legendText: {
+    flexShrink: 1,
   },
   rsvpRow: {
     flexDirection: 'row',
