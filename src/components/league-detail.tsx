@@ -48,6 +48,7 @@ import { type Coordinates } from '@/lib/geo';
 import { formatWhen, parseTimeOfDay, SEATS_PER_MATCH } from '@/lib/matches';
 import { fetchPlaceLocation } from '@/lib/places';
 import {
+  describeMonthly,
   expandDates,
   Frequencies,
   formatDateOnly,
@@ -756,6 +757,16 @@ export function LeagueDetail({
                     placeholderTextColor={theme.placeholder}
                     style={[styles.input, { color: theme.text, borderColor: theme.rule }]}
                   />
+                  {/* Monthly is read off the date rather than asked about
+                      separately, so it has to say which rule it inferred — "the
+                      first Tuesday" and "the 5th" are the same date in September
+                      and different ones in October. */}
+                  {sessionRepeat === 'monthly' && describeMonthly(sessionDate) ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Repeats on {describeMonthly(sessionDate)}.
+                    </ThemedText>
+                  ) : null}
+
                   {/* Says what will happen before it happens, because the button
                       is about to create rows in bulk and the only way to undo
                       forty of them is one at a time. */}

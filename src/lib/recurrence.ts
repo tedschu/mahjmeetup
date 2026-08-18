@@ -39,10 +39,10 @@ export type Expansion = {
   /** The run stopped at `MaxOccurrences` with the end date not yet reached. */
   capped: boolean;
   /**
-   * Months that have no such day — the 31st of February and friends. Skipped
-   * rather than clamped back to the 28th, because a league that meets on the 31st
-   * has no meetup in a month without one, and inventing an earlier date would put
-   * a meetup on a day nobody chose.
+   * Months the pattern does not occur in — a fifth Tuesday in a month that has
+   * only four. Skipped rather than pulled back to the fourth, because a group that
+   * meets on the fifth Tuesday does not meet in a month without one, and inventing
+   * a date would put a meetup on a day nobody chose.
    */
   skipped: number;
 };
@@ -70,6 +70,51 @@ function parseDate(value: string): Date | null {
 }
 
 /**
+ * Which weekday a date is, and which one of those it is in its month.
+ *
+ * This is what "monthly" means here: the first Tuesday, the third Saturday. A
+ * group meeting monthly meets on a weekday, and a rule keyed to the day number
+ * would wander across the week — the 5th falling on a Saturday one month and a
+ * Wednesday the next, which is no use to anyone with a standing Tuesday evening.
+ * Both parts are read off the first date, so the pattern is stated by picking it
+ * rather than by answering another question.
+ */
+function weekdayPositionOf(date: Date) {
+  return { weekday: date.getDay(), ordinal: Math.ceil(date.getDate() / 7) };
+}
+
+/**
+ * The nth given weekday of a month, or null when the month does not have one —
+ * a fifth Monday exists in some months and not others.
+ */
+function nthWeekdayOf(monthStart: Date, weekday: number, ordinal: number): Date | null {
+  const offset = (weekday - monthStart.getDay() + 7) % 7;
+  const day = 1 + offset + (ordinal - 1) * 7;
+
+  const candidate = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
+  // Rolled into the next month, so this one has no such weekday.
+  if (candidate.getMonth() !== monthStart.getMonth()) return null;
+
+  return candidate;
+}
+
+const Ordinals = ['first', 'second', 'third', 'fourth', 'fifth'];
+
+/**
+ * "the first Tuesday of each month" — so the form can state the rule it inferred
+ * from the date, rather than leaving "Monthly" to be guessed at.
+ */
+export function describeMonthly(start: string): string | null {
+  const from = parseDate(start);
+  if (!from) return null;
+
+  const { ordinal } = weekdayPositionOf(from);
+  const day = from.toLocaleDateString(undefined, { weekday: 'long' });
+
+  return `the ${Ordinals[ordinal - 1] ?? `${ordinal}th`} ${day} of each month`;
+}
+
+/**
  * Every date the pattern lands on, from `start` up to and including `end`.
  *
  * Returns nothing at all for an end date before the start, rather than a single
@@ -93,16 +138,16 @@ export function expandDates(start: string, end: string, frequency: Frequency): E
   let skipped = 0;
 
   if (frequency === 'monthly') {
-    const day = from.getDate();
+    const { weekday, ordinal } = weekdayPositionOf(from);
 
     for (let step = 0; dates.length < limit; step += 1) {
-      // The first of the target month, which advances even when the day itself
-      // does not exist there — so a skipped February cannot end the run.
+      // The first of the target month, which advances even in a month the pattern
+      // misses — so a February without a fifth Tuesday cannot end the run.
       const monthStart = new Date(from.getFullYear(), from.getMonth() + step, 1);
       if (monthStart > until) break;
 
-      const candidate = new Date(from.getFullYear(), from.getMonth() + step, day);
-      if (candidate.getDate() !== day) {
+      const candidate = nthWeekdayOf(monthStart, weekday, ordinal);
+      if (!candidate) {
         skipped += 1;
         continue;
       }
