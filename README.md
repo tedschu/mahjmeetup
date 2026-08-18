@@ -1,56 +1,69 @@
-# Welcome to your Expo app 👋
+# SEVEN BAM
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Find a mahjong game near you, or run the league you already play in.
 
-## Get started
+**v1 — a web app.** It runs in a phone browser and is meant to be added to the
+home screen, where it behaves like an installed app. iOS and Android builds come
+later; the code is Expo and already targets all three, but only the web build is
+released.
 
-1. Install dependencies
+Live at **https://tschusters-team-mahjong.expo.app** · marketing site at
+**https://sevenbam.com**
 
-   ```bash
-   npm install
-   ```
+## What it does
 
-2. Start the app
+- **Browse** — open tables near you, with distance from your town, and public
+  leagues taking members. Cards flag what is new or about to happen.
+- **My Matches** — what you have joined, split into what is coming and what has
+  been. Add to calendar, enter scores, or say you cannot make it.
+- **Leagues** — seasons of meetups, optionally repeating daily, weekly or monthly.
+  The organizer draws the tables and the app shuffles everyone who is coming into
+  fours, then puts each table into their My Matches. Short tables can be opened to
+  subs from outside the league.
+- **Ranking** — standings across every match, or within one league. Totals count
+  finished matches with scores entered.
 
-   ```bash
-   npx expo start
-   ```
+Contact details are never published: a member's email and phone are readable only
+by them, and reachable by co-players through functions scoped to the match or
+league they share.
 
-In the output, you'll find options to open the app in a
+## Running it
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Node 22 is required — the web export server-renders the Supabase client.
 
 ```bash
-npm run reset-project
+nvm use 22
+npm install
+npx supabase start   # local Postgres, auth and mail catcher
+npm run web
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+`.env.local` points at the local stack by default; the production values are
+commented out in the same file.
 
-### Other setup steps
+## Layout
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+| Path | What is in it |
+| --- | --- |
+| `src/app` | Screens, one per tab, on Expo Router |
+| `src/components` | Cards, sheets and the shared controls |
+| `src/lib` | Data access and the rules that are not the database's |
+| `src/constants/theme.ts` | Palette, spacing and type scale — read before styling anything |
+| `supabase/migrations` | Every schema change, in order |
+| `marketing-site/` | The static site at sevenbam.com, published by GitHub Actions |
 
-## Learn more
+Most of the app's rules live in the database rather than the client: capacity,
+who may draw or score a table, who can read a phone number. The client is written
+to match, never to be the only thing enforcing it.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Deploying
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npx supabase db push                     # schema first — the client assumes it
+npx expo export -p web                   # with production EXPO_PUBLIC_* values
+npx eas-cli@latest deploy --prod
+```
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Exporting without the production environment variables ships a build pointing at
+`127.0.0.1`, which fails silently for everyone but you. Check the bundle for the
+remote Supabase host before promoting it.
