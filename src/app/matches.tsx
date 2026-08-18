@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AllKinds, keepKind, MatchKindChips, type MatchKinds } from '@/components/browse-filters';
 import { QuietButton } from '@/components/button';
+import { Icon } from '@/components/icon';
 import { MatchCard } from '@/components/match-card';
 import { MatchSheet } from '@/components/match-sheet';
 import { Ribbon } from '@/components/ribbon';
@@ -20,6 +21,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { fetchSessionAttendance, setAttendance, type Availability } from '@/lib/attendance';
 import {
   addMatchToCalendar,
   loadCalendarSent,
@@ -81,6 +83,8 @@ function MatchActions({
   sentToCalendar,
   leaving,
   now,
+  going,
+  onRsvp,
   onAddToCalendar,
   onEdit,
   onEnterScores,
@@ -92,6 +96,9 @@ function MatchActions({
   leaving: boolean;
   /** The instant the list was classified against — see `loadedAt`. */
   now: number;
+  /** What this member has said about the meetup behind a league table. */
+  going: Availability | null;
+  onRsvp: (status: Availability) => void;
   onAddToCalendar: () => void;
   onEdit: () => void;
   onEnterScores: () => void;
@@ -146,7 +153,98 @@ function MatchActions({
         />
       ) : null}
 
-      {canLeave(match, userId, now) ? <LeaveButton busy={leaving} onPress={onLeave} /> : null}
+      {/* A seat at a league table is given up by saying you cannot make it, not by
+          "leaving" — leaving a table you were dealt into sounds like leaving the
+          league, and it writes the same attendance record the league screen does.
+          One concept in two places, so the two can never disagree. */}
+      {match.session_id && !isPast && !isClosed ? (
+        <RsvpButtons
+          going={going}
+          busy={leaving}
+          onGoing={() => onRsvp('in')}
+          onAway={() => onRsvp('out')}
+        />
+      ) : canLeave(match, userId, now) ? (
+        <LeaveButton busy={leaving} onPress={onLeave} />
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Going, or not. Drawn as a pair so the state is visible without reading a label:
+ * whichever is chosen is filled, and neither is until an answer is given.
+ *
+ * Both stay tappable at all times. Somebody who dropped out and can now make it
+ * needs to say so, and the organizer will see them back in the count — though not
+ * back in a seat, which only a redraw can do.
+ */
+function RsvpButtons({
+  going,
+  busy,
+  onGoing,
+  onAway,
+}: {
+  going: Availability | null;
+  busy: boolean;
+  onGoing: () => void;
+  onAway: () => void;
+}) {
+  const theme = useTheme();
+
+  if (busy) return <ActivityIndicator />;
+
+  return (
+    <View style={styles.rsvpRow}>
+      {(
+        [
+          ['in', 'Going', 'check', onGoing],
+          ['out', "Can't make it", 'close', onAway],
+        ] as const
+      ).map(([value, label, icon, press]) => {
+        const chosen = going === value;
+        // Green for coming, the danger red for not — the two answers people scan
+        // for rather than read. Only the chosen one is coloured; an unanswered
+        // pair of coloured chips would look like a decision already taken.
+        const tone = value === 'in' ? theme.going : theme.danger;
+        // Filled in its own colour once chosen, rather than the yellow
+        // highlight the rest of the app uses for a selected chip: the
+        // answer is the state here, and green-for-going reads before any
+        // label does. The label rides `onAccentButton`, which is white on
+        // the light theme's deep fill and dark on the dark theme's light
+        // one — the same inversion the solid buttons use, and the reason
+        // neither ends up as white-on-mint. 
+        return (
+          <Pressable
+            key={value}
+            onPress={press}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            style={({ pressed }) => pressed && styles.pressed}>
+            <ThemedView
+              type="background"
+              style={[
+                styles.rsvpChip,
+                {
+                  borderColor: chosen ? tone : theme.rule,
+                  backgroundColor: chosen ? tone : undefined,
+                },
+              ]}>
+              <Icon
+                name={icon}
+                size={14}
+                color={chosen ? theme.onAccentButton : theme.textSecondary}
+              />
+              <ThemedText
+                type="label"
+                style={chosen ? { color: theme.onAccentButton } : undefined}
+                themeColor={chosen ? undefined : 'textSecondary'}>
+                {label}
+              </ThemedText>
+            </ThemedView>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -159,6 +257,11 @@ export default function MatchesScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [scoringMatchId, setScoringMatchId] = useState<string | null>(null);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  /**
+   * What this member has said about each league meetup behind their tables, keyed
+   * by meetup. A pick-up match has none and needs none.
+   */
+  const [going, setGoing] = useState<Record<string, Availability | null>>({});
   const [calendarSent, setCalendarSent] = useState<Set<string>>(new Set());
   const [kinds, setKinds] = useState<MatchKinds>(AllKinds);
   /** Which match is mid-leave, so only that row shows a spinner. */
@@ -187,9 +290,20 @@ export default function MatchesScreen() {
       }
 
       setUserId(user.id);
-      setMatches(await fetchMyMatches(user.id));
+      const mine = await fetchMyMatches(user.id);
+      setMatches(mine);
       setCalendarSent(await loadCalendarSent(user.id));
       setLoadedAt(Date.now());
+
+      // Only league tables have a meetup to answer for. Never fatal: the list is
+      // already on screen, and an unanswered control is better than no list.
+      const sessions = [...new Set(mine.map((match) => match.session_id).filter(Boolean))];
+      const answers = await fetchSessionAttendance(sessions as string[], user.id).catch(() => ({}));
+      setGoing(
+        Object.fromEntries(
+          Object.entries(answers).map(([sessionId, row]) => [sessionId, row.mine])
+        )
+      );
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your matches.');
@@ -271,6 +385,26 @@ export default function MatchesScreen() {
   // Read from the freshly loaded list, so the sheets show current seats rather
   // than a snapshot taken when the button was tapped.
   const scoringMatch = matches.find((match) => match.id === scoringMatchId) ?? null;
+  /**
+   * Answer for the meetup behind a league table. Saying no gives the seat up, so
+   * the row this was tapped on disappears from the list — which is why the whole
+   * list is reloaded rather than the one row patched.
+   */
+  const rsvp = async (match: Match, status: Availability) => {
+    if (!match.session_id) return;
+
+    setLeavingMatchId(match.id);
+    try {
+      await setAttendance(match.session_id, status);
+      await load();
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save that.');
+    } finally {
+      setLeavingMatchId(null);
+    }
+  };
+
   const editingMatch = matches.find((match) => match.id === editingMatchId) ?? null;
 
   return (
@@ -313,6 +447,8 @@ export default function MatchesScreen() {
                     sentToCalendar={calendarSent.has(item.id)}
                     leaving={leavingMatchId === item.id}
                     now={loadedAt}
+                    going={item.session_id ? (going[item.session_id] ?? null) : null}
+                    onRsvp={(status) => rsvp(item, status)}
                     onAddToCalendar={() => sendToCalendar(item)}
                     onEdit={() => setEditingMatchId(item.id)}
                     onEnterScores={() => setScoringMatchId(item.id)}
@@ -421,6 +557,21 @@ const styles = StyleSheet.create({
   leaveButton: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  rsvpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  rsvpChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    minHeight: 34,
     borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
   },

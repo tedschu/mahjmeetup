@@ -88,6 +88,16 @@ export const Colors = {
     accentAltInk: '#5a48db',
     /** A deepened coral, so failures read as part of the palette. 4.9:1. */
     danger: '#c4453a',
+    /**
+     * Coming. A semantic state rather than a brand colour, added the same way
+     * `danger` was and for the same reason: "yes I am there" and "something went
+     * wrong" are the two answers no palette of teals and ambers can carry on its
+     * own, and both have to be legible as type.
+     *
+     * Deep enough to set 11px labels in — 5.3:1 on a card, and still 4.6:1 on the
+     * yellow highlight a chosen chip sits on, which the brighter greens are not.
+     */
+    going: '#1f7a4d',
     onAccent: OnAccent,
     /**
      * A solid teal button, and the type on it.
@@ -123,6 +133,8 @@ export const Colors = {
     accentAlt: '#a692ff',
     accentAltInk: '#bcacff',
     danger: '#ff8a7e',
+    /** See the light theme. Lightened rather than deepened, at 8.4:1 on the card. */
+    going: '#5fd39b',
     /** Still dark: the fills it sits on are light in this scheme too. */
     onAccent: OnAccent,
     /**

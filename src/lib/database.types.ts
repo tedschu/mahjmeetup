@@ -247,6 +247,7 @@ export type Database = {
           location: string
           location_detail: string | null
           longitude: number | null
+          needs_sub: boolean
           notes: string | null
           session_id: string | null
           status: string | null
@@ -263,6 +264,7 @@ export type Database = {
           location: string
           location_detail?: string | null
           longitude?: number | null
+          needs_sub?: boolean
           notes?: string | null
           session_id?: string | null
           status?: string | null
@@ -279,6 +281,7 @@ export type Database = {
           location?: string
           location_detail?: string | null
           longitude?: number | null
+          needs_sub?: boolean
           notes?: string | null
           session_id?: string | null
           status?: string | null
@@ -320,6 +323,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "league_sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_attendance_summary"
+            referencedColumns: ["session_id"]
           },
         ]
       }
@@ -428,6 +438,63 @@ export type Database = {
           },
         ]
       }
+      session_attendance: {
+        Row: {
+          profile_id: string
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          profile_id: string
+          session_id: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          profile_id?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_attendance_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "session_attendance_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "league_standings"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "session_attendance_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "league_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_attendance_summary"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
     }
     Views: {
       leaderboard: {
@@ -466,6 +533,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      session_attendance_summary: {
+        Row: {
+          expected_tables: number | null
+          going: number | null
+          no_answer: number | null
+          not_going: number | null
+          roster: number | null
+          session_id: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
@@ -513,6 +591,10 @@ export type Database = {
       }
       match_seat_limit: { Args: never; Returns: number }
       new_invite_token: { Args: never; Returns: string }
+      open_session_to_subs: {
+        Args: { p_open: boolean; p_session_id: string }
+        Returns: number
+      }
       public_leagues: {
         Args: never
         Returns: {
@@ -530,6 +612,10 @@ export type Database = {
           next_meetup: string
           seats_left: number
         }[]
+      }
+      set_session_attendance: {
+        Args: { p_session_id: string; p_status: string }
+        Returns: number
       }
       update_league_session: {
         Args: {

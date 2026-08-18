@@ -41,6 +41,14 @@ import {
   type MyLeague,
   type Season,
 } from '@/lib/leagues';
+import {
+  EmptyAttendance,
+  fetchSessionAttendance,
+  openSessionToSubs,
+  setAttendance,
+  type Availability,
+  type SessionAttendance,
+} from '@/lib/attendance';
 import { changeNotice, changesBetween, type Change } from '@/lib/change-notice';
 import {
   fetchLeagueMemberEmails,
@@ -52,7 +60,7 @@ import {
   type Recipient,
 } from '@/lib/contact';
 import { type Coordinates } from '@/lib/geo';
-import { formatTimeOfDay, formatWhen, parseTimeOfDay, SEATS_PER_MATCH } from '@/lib/matches';
+import { formatTimeOfDay, formatWhen, parseTimeOfDay } from '@/lib/matches';
 import { fetchPlaceLocation } from '@/lib/places';
 import {
   describeMonthly,
@@ -157,6 +165,18 @@ export function LeagueDetail({
   /** Set between saving a moved meetup and answering the offer to announce it. */
   const [changes, setChanges] = useState<Change[]>([]);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  /**
+   * Availability for the meetups on screen, keyed by meetup. Loaded alongside them
+   * rather than folded into `fetchSessions`, because the counts come from a view
+   * over the whole roster and "what did I say" is one row of another table.
+   */
+  const [attendance, setAttendance_] = useState<Record<string, SessionAttendance>>({});
+  /**
+   * The instant "has this meetup been and gone" is measured against. Captured when
+   * the screen loads rather than read while rendering, which the React compiler
+   * refuses outright — the same reason `loadedAt` exists on My Matches.
+   */
+  const [loadedAt, setLoadedAt] = useState(() => Date.now());
   const [sessionDetail, setSessionDetail] = useState<string | null>(null);
   const [sessionVenue, setSessionVenue] = useState('');
   /**
@@ -189,6 +209,7 @@ export function LeagueDetail({
       ]);
       setMembers(roster);
       setSeasons(found);
+      setLoadedAt(Date.now());
 
       // Default to the season being played rather than the newest, which may
       // already be finished.
@@ -243,8 +264,48 @@ export function LeagueDetail({
 
   const reloadSessions = useCallback(async () => {
     if (!seasonId) return;
-    setSessions(await fetchSessions(seasonId));
-  }, [seasonId]);
+    const found = await fetchSessions(seasonId);
+    setSessions(found);
+    // Never fatal: a league screen without its counts is still a league screen,
+    // and the meetups themselves have already arrived.
+    setAttendance_(
+      await fetchSessionAttendance(
+        found.map((session) => session.id),
+        userId
+      ).catch(() => ({}))
+    );
+  }, [seasonId, userId]);
+
+  /**
+   * Answer for a meetup. After a draw this also gives the seat up, which is the
+   * whole point — a table still showing four people is how an organizer fails to
+   * notice they are short.
+   */
+  const answer = async (session: LeagueSession, status: Availability) => {
+    setBusy(`rsvp-${session.id}`);
+    try {
+      await setAttendance(session.id, status);
+      await reloadSessions();
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save that.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const toggleSubs = async (session: LeagueSession) => {
+    setBusy(`subs-${session.id}`);
+    try {
+      await openSessionToSubs(session.id, session.subs_open === 0);
+      await reloadSessions();
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not change that.');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const copyInvite = async () => {
     await Clipboard.setStringAsync(inviteUrlFor(league));
@@ -555,7 +616,14 @@ export function LeagueDetail({
    */
   const canDelete = isOrganizer && footprint !== null && footprint.played === 0;
 
-  const expectedTables = Math.ceil(members.length / SEATS_PER_MATCH);
+  /** Availability for one meetup, with zeroes until it has loaded. */
+  const here = (session: LeagueSession) => attendance[session.id] ?? EmptyAttendance;
+
+  /**
+   * A meetup that has been and gone. Answering for last Tuesday is not a thing
+   * anybody needs to do, and the row says so by simply not offering it.
+   */
+  const isPast = (session: LeagueSession) => new Date(session.date_time) < new Date(loadedAt);
 
   /**
    * The soonest meetup still to come, for prefilling a message to the members —
@@ -1000,11 +1068,75 @@ export function LeagueDetail({
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   {session.tables === 0
-                    ? `Not drawn — ${expectedTables} ${expectedTables === 1 ? 'table' : 'tables'} from ${members.length} members`
+                    ? `Not drawn — ${here(session).expected_tables} ${
+                        here(session).expected_tables === 1 ? 'table' : 'tables'
+                      } from who is coming`
                     : `${session.tables} ${session.tables === 1 ? 'table' : 'tables'} drawn${
                         session.played ? ' · played' : ''
                       }`}
                 </ThemedText>
+
+                {/* Three numbers, because "going" alone cannot tell nine
+                    confirmed from seven confirmed and two who never looked — and
+                    that is the difference that decides whether to find a sub.
+                    Organizers only: a member needs to answer for themselves, not
+                    to audit the roster. */}
+                {isOrganizer ? (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {here(session).going} in · {here(session).not_going} out ·{' '}
+                    {here(session).no_answer} no answer
+                  </ThemedText>
+                ) : null}
+
+                {session.subs_open > 0 ? (
+                  <ThemedText type="label" style={{ color: theme.accentWarmInk }}>
+                    {session.subs_open} {session.subs_open === 1 ? 'table' : 'tables'} open to subs
+                  </ThemedText>
+                ) : null}
+
+                {/* Everybody answers, including the organizer — they play too.
+                    Going is the default and stays unmarked until it is chosen, so
+                    the row does not claim an answer nobody gave. */}
+                {isPast(session) ? null : (
+                  <View style={styles.rsvpRow}>
+                    {busy === `rsvp-${session.id}` ? (
+                      <ActivityIndicator />
+                    ) : (
+                      (['in', 'out'] as const).map((choice) => {
+                        const chosen = here(session).mine === choice;
+                        const tone = choice === 'in' ? theme.going : theme.danger;
+                        return (
+                          <Pressable
+                            key={choice}
+                            onPress={() => answer(session, choice)}
+                            style={({ pressed }) => pressed && styles.pressed}>
+                            <ThemedView
+                              type="backgroundElement"
+                              style={[
+                                styles.rsvpChip,
+                                {
+                                  borderColor: chosen ? tone : theme.rule,
+                                  backgroundColor: chosen ? tone : undefined,
+                                },
+                              ]}>
+                              <Icon
+                                name={choice === 'in' ? 'check' : 'close'}
+                                size={14}
+                                color={chosen ? theme.onAccentButton : theme.textSecondary}
+                              />
+                              <ThemedText
+                                type="label"
+                                style={chosen ? { color: theme.onAccentButton } : undefined}
+                                themeColor={chosen ? undefined : 'textSecondary'}>
+                                {choice === 'in' ? 'Going' : "Can't make it"}
+                              </ThemedText>
+                            </ThemedView>
+                          </Pressable>
+                        );
+                      })
+                    )}
+                  </View>
+                )}
               </View>
 
               {canRun ? (
@@ -1043,6 +1175,31 @@ export function LeagueDetail({
                           <Icon name="pencil" color={theme.textSecondary} size={18} />
                         </ThemedView>
                       </Pressable>
+
+                      {/* Offered once there is a drawn table with an empty chair.
+                          Before the draw there is nothing to open, and the fix for
+                          being short beforehand is simply to draw fewer tables. */}
+                      {session.tables > 0 && !session.played ? (
+                        <Pressable
+                          onPress={() => toggleSubs(session)}
+                          accessibilityLabel={
+                            session.subs_open > 0 ? 'Stop asking for subs' : 'Ask for subs'
+                          }
+                          style={({ pressed }) => pressed && styles.pressed}>
+                          <ThemedView
+                            type={session.subs_open > 0 ? 'backgroundSelected' : 'backgroundElement'}
+                            style={[
+                              styles.iconButton,
+                              { borderColor: session.subs_open > 0 ? theme.accentWarm : theme.rule },
+                            ]}>
+                            <Icon
+                              name="people"
+                              color={session.subs_open > 0 ? theme.accentWarmInk : theme.textSecondary}
+                              size={18}
+                            />
+                          </ThemedView>
+                        </Pressable>
+                      ) : null}
 
                       {session.tables === 0 ? (
                         <Pressable
@@ -1321,6 +1478,23 @@ const styles = StyleSheet.create({
   },
   sessionText: {
     flex: 1,
+  },
+  rsvpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+    minHeight: 34,
+  },
+  rsvpChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    minHeight: 30,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   sessionActions: {
     flexDirection: 'row',

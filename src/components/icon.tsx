@@ -39,8 +39,10 @@ const Paths: Record<string, string> = {
   /** Remove. */
   trash:
     '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l.8 12.5A1.5 1.5 0 0 0 8.8 21h6.4a1.5 1.5 0 0 0 1.5-1.5L17.5 7"/>',
-  /** Dismiss a sheet. */
+  /** Dismiss a sheet. Doubles as "not coming" beside `check`. */
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  /** Coming. Paired with `close` on the availability control. */
+  check: '<path d="M5 12.5 9.5 17 19 7.5"/>',
   /** A venue on a map — the marker teardrop, for the directions link. */
   pin: '<path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   /** Write to the people who joined — an envelope. */

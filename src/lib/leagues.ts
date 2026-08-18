@@ -81,6 +81,8 @@ export type LeagueSession = {
   tables: number;
   /** True once any table has been played, at which point redrawing is refused. */
   played: boolean;
+  /** Tables of this meetup currently offered to people outside the league. */
+  subs_open: number;
 };
 
 export type LeagueStanding = {
@@ -307,14 +309,18 @@ export async function createSeason(leagueId: string, name: string): Promise<stri
 export async function fetchSessions(seasonId: string): Promise<LeagueSession[]> {
   const { data, error } = await supabase
     .from('league_sessions')
-    .select('id, sequence, date_time, location, location_detail, matches (id, status)')
+    .select('id, sequence, date_time, location, location_detail, matches (id, status, needs_sub)')
     .eq('season_id', seasonId)
     .order('sequence');
 
   if (error) throw error;
 
   return (data ?? []).map((row) => {
-    const matches = (row.matches ?? []) as { id: string; status: string | null }[];
+    const matches = (row.matches ?? []) as {
+      id: string;
+      status: string | null;
+      needs_sub: boolean | null;
+    }[];
     return {
       id: row.id,
       sequence: row.sequence,
@@ -323,6 +329,7 @@ export async function fetchSessions(seasonId: string): Promise<LeagueSession[]> 
       location_detail: row.location_detail,
       tables: matches.length,
       played: matches.some((match) => match.status === 'completed'),
+      subs_open: matches.filter((match) => match.needs_sub).length,
     };
   });
 }

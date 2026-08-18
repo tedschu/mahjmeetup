@@ -190,7 +190,12 @@ export function MatchCard({
         style={({ pressed }) => [styles.body, pressed && styles.pressed]}>
         {/* Above the venue, where it is the first thing in the card rather than
             the last thing in a row of small print. */}
-        {timing ? (
+        {/* One chip, and needing a sub outranks both timing labels: it is the only
+            one that says the table wants something from the reader rather than
+            merely describing it. */}
+        {match.needs_sub ? (
+          <TimingChip label="Needs a sub" />
+        ) : timing ? (
           <TimingChip label={timing === 'soon' ? 'Happening soon' : 'Just added'} />
         ) : null}
 

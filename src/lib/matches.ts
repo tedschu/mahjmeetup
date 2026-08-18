@@ -5,6 +5,7 @@ export const SEATS_PER_MATCH = 4;
 
 const MATCH_SELECT = `
   id, date_time, created_at, location, location_detail, notes, supplies_provided, status, host_id,
+  needs_sub,
   latitude, longitude, league_id, session_id, table_number,
   league:leagues (id, name, color),
   host:profiles!matches_host_id_fkey (id, name),
@@ -14,6 +15,12 @@ const MATCH_SELECT = `
 export type Match = {
   id: string;
   date_time: string;
+  /**
+   * A league table whose organizer has opened its empty seats to people outside
+   * the league. Always false for a pick-up match, which is open to everyone by
+   * nature and needs no flag to say so.
+   */
+  needs_sub: boolean;
   /** When the match was proposed, which is what makes a card new rather than soon. */
   created_at: string;
   /** The venue's name, and the only part a card leads with. */
@@ -304,7 +311,12 @@ export async function fetchUpcomingMatches(): Promise<Match[]> {
   const { data, error } = await supabase
     .from('matches')
     .select(MATCH_SELECT)
-    .is('league_id', null)
+    // League tables are dealt rather than claimed, so they stay out of Browse —
+    // except the ones an organizer has opened to subs, which is exactly a league
+    // table asking to be claimed. The insert policy on `match_players` makes the
+    // matching exception, so the Join button here is not offering something the
+    // database will refuse.
+    .or('league_id.is.null,needs_sub.eq.true')
     .in('status', ['open', 'full'])
     .gte('date_time', new Date().toISOString())
     .order('date_time');
