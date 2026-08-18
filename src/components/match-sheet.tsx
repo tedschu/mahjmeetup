@@ -12,11 +12,19 @@ import {
   View,
 } from 'react-native';
 
+import { ChangeNoticePrompt } from '@/components/change-notice-prompt';
 import { PlaceAutocompleteInput } from '@/components/place-autocomplete-input';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { LeagueColors, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { changeNotice, changesBetween, type Change } from '@/lib/change-notice';
+import {
+  fetchMatchPlayerEmails,
+  fetchMyEmail,
+  openGroupEmail,
+  type Recipient,
+} from '@/lib/contact';
 import { coordinatesOf, type Coordinates } from '@/lib/geo';
 import { fetchMyLeagues, type MyLeague } from '@/lib/leagues';
 import {
@@ -101,6 +109,13 @@ export function MatchSheet({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmingRemoval, setIsConfirmingRemoval] = useState(false);
+  /**
+   * Non-empty only between saving a change of plan and answering the offer to
+   * announce it, which is the whole state this sheet needs for that step — the
+   * edit itself is already written by then.
+   */
+  const [changes, setChanges] = useState<Change[]>([]);
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
 
   // Loaded rather than passed in, because the sheet is opened from two screens
   // and neither has a reason to know about leagues.
@@ -154,6 +169,25 @@ export function MatchSheet({
     try {
       if (match) {
         await updateMatch(match.id, fields);
+
+        /**
+         * Held open on a change of plan rather than closed on save.
+         *
+         * Only when and where raise this. Fixing a typo in the notes or flipping
+         * the supplies switch is not news, and a prompt after every edit is one
+         * people learn to dismiss without reading — which is exactly when the one
+         * that mattered goes past unread.
+         */
+        const moved = changesBetween(match, fields);
+        if (moved.length > 0) {
+          setChanges(moved);
+          // The people to tell, minus the host doing the telling. Fetched now so
+          // the prompt can say how many rather than "the players".
+          const seated = await fetchMatchPlayerEmails(match.id);
+          setRecipients(seated.filter((person) => person.email));
+          setIsSaving(false);
+          return;
+        }
       } else {
         await createMatch(hostId, fields);
       }
@@ -163,6 +197,50 @@ export function MatchSheet({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  /**
+   * Hands the note to their mail client, then finishes the save.
+   *
+   * `onSaved` runs either way — the edit landed before this prompt appeared, so
+   * the list behind must refresh whether or not anybody gets an email.
+   */
+  const sendNotice = async () => {
+    if (!match || !at) return;
+
+    setIsSaving(true);
+    const { subject, body } = changeNotice({
+      title: location.trim(),
+      changes,
+      after: {
+        date_time: at,
+        location: location.trim(),
+        location_detail: locationDetail?.trim() || null,
+      },
+      where: 'My Matches',
+    });
+
+    const { omitted } = await openGroupEmail({
+      self: await fetchMyEmail(),
+      recipients,
+      subject,
+      body,
+    });
+
+    setIsSaving(false);
+    if (omitted > 0) {
+      // Said rather than swallowed: a message that quietly reached some of the
+      // table is worse than one that names who it missed.
+      setError(`${omitted} ${omitted === 1 ? 'address' : 'addresses'} did not fit — tell them directly.`);
+      return;
+    }
+    finishNotice();
+  };
+
+  const finishNotice = () => {
+    setChanges([]);
+    setRecipients([]);
+    onSaved();
   };
 
   const remove = async () => {
@@ -191,6 +269,26 @@ export function MatchSheet({
           <ScrollView
             contentContainerStyle={styles.sheetContent}
             keyboardShouldPersistTaps="handled">
+            {/* The announcement step takes the sheet over once the edit is saved.
+                Everything below is hidden rather than scrolled past, so the only
+                two things on screen are the two answers to the question. */}
+            {changes.length > 0 ? (
+              <>
+                <ChangeNoticePrompt
+                  changes={changes}
+                  recipients={recipients.length}
+                  busy={isSaving}
+                  onSend={sendNotice}
+                  onSkip={finishNotice}
+                />
+                {error ? (
+                  <ThemedText type="small" style={{ color: theme.danger }}>
+                    {error}
+                  </ThemedText>
+                ) : null}
+              </>
+            ) : (
+              <>
             <ThemedText type="subtitle">{isEditing ? 'Edit match' : 'Propose a match'}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {isEditing
@@ -409,6 +507,8 @@ export function MatchSheet({
                 )}
               </View>
             ) : null}
+              </>
+            )}
           </ScrollView>
         </ThemedView>
       </KeyboardAvoidingView>

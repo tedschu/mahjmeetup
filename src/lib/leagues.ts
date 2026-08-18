@@ -363,6 +363,43 @@ export async function createSessions(
   return (data ?? []).map((row) => row.id);
 }
 
+/**
+ * Moves a meetup, and every table already drawn from it.
+ *
+ * Runs in the database because the two writes have to agree: the draw copies the
+ * meetup's date and venue onto each match, and those copies are what players see
+ * in My Matches — so changing the session alone would move the meetup on the
+ * league screen and leave the tables pointing at the old room. Tables already
+ * played or called off keep what they had.
+ *
+ * Returns how many tables moved, which is what the screen tells the organizer.
+ */
+export async function updateSession(
+  sessionId: string,
+  fields: {
+    date_time: string;
+    location: string;
+    location_detail: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  }
+): Promise<number> {
+  const { data, error } = await supabase.rpc('update_league_session', {
+    p_session_id: sessionId,
+    p_date_time: fields.date_time,
+    p_location: fields.location,
+    // Cast because the type generator marks every argument non-null: Postgres does
+    // not record which parameters accept null, and all three of these do — a venue
+    // typed by hand has no address and no coordinates.
+    p_location_detail: fields.location_detail as string,
+    p_latitude: fields.latitude as number,
+    p_longitude: fields.longitude as number,
+  });
+
+  if (error) throw error;
+  return (data as number) ?? 0;
+}
+
 export async function deleteSession(sessionId: string) {
   const { error } = await supabase.from('league_sessions').delete().eq('id', sessionId);
   if (error) throw error;

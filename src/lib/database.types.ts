@@ -531,6 +531,17 @@ export type Database = {
           seats_left: number
         }[]
       }
+      update_league_session: {
+        Args: {
+          p_date_time: string
+          p_latitude: number
+          p_location: string
+          p_location_detail: string
+          p_longitude: number
+          p_session_id: string
+        }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

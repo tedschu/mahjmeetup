@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { ChangeNoticePrompt } from '@/components/change-notice-prompt';
 import { ContactRows } from '@/components/contact-rows';
 import { EmailGroupButton } from '@/components/email-group-button';
 import { Icon } from '@/components/icon';
@@ -33,19 +34,24 @@ import {
   leaveLeague,
   setLeagueArchived,
   updateLeagueVisibility,
+  updateSession,
   type LeagueFootprint,
   type LeagueMember,
   type LeagueSession,
   type MyLeague,
   type Season,
 } from '@/lib/leagues';
+import { changeNotice, changesBetween, type Change } from '@/lib/change-notice';
 import {
   fetchLeagueMemberEmails,
   fetchLeagueOrganizerContact,
+  fetchMyEmail,
+  openGroupEmail,
   type Contact,
+  type Recipient,
 } from '@/lib/contact';
 import { type Coordinates } from '@/lib/geo';
-import { formatWhen, parseTimeOfDay, SEATS_PER_MATCH } from '@/lib/matches';
+import { formatTimeOfDay, formatWhen, parseTimeOfDay, SEATS_PER_MATCH } from '@/lib/matches';
 import { fetchPlaceLocation } from '@/lib/places';
 import {
   describeMonthly,
@@ -57,10 +63,13 @@ import {
 } from '@/lib/recurrence';
 
 /** Local wall-clock date, matching the match sheet's field. */
+function localDateISO(date: Date) {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
 function todayISO() {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+  return localDateISO(new Date());
 }
 
 function toTimestamp(date: string, time: string): string | null {
@@ -138,6 +147,15 @@ export function LeagueDetail({
    */
   const [sessionRepeat, setSessionRepeat] = useState<Frequency>('once');
   const [sessionUntil, setSessionUntil] = useState('');
+  /**
+   * The meetup being edited, which reuses the fields above rather than keeping a
+   * second copy of them. One form, two jobs: the difference is only that a repeat
+   * makes no sense for a meetup that already exists.
+   */
+  const [editingSession, setEditingSession] = useState<LeagueSession | null>(null);
+  /** Set between saving a moved meetup and answering the offer to announce it. */
+  const [changes, setChanges] = useState<Change[]>([]);
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [sessionDetail, setSessionDetail] = useState<string | null>(null);
   const [sessionVenue, setSessionVenue] = useState('');
   /**
@@ -331,6 +349,108 @@ export function LeagueDetail({
     } finally {
       setBusy(null);
     }
+  };
+
+  /** Opens the form on an existing meetup, with its own details in the fields. */
+  const startEditing = (session: LeagueSession) => {
+    const at = new Date(session.date_time);
+
+    setEditingSession(session);
+    setIsAddingSession(false);
+    setSessionDate(localDateISO(at));
+    setSessionTime(formatTimeOfDay(at));
+    setSessionVenue(session.location);
+    setSessionDetail(session.location_detail);
+    // Cleared rather than carried over: the sheet has no coordinates for a venue
+    // it did not just look up, and stale ones would put the meetup in the wrong
+    // town. Re-picking the venue from the suggestions restores them.
+    setSessionAt(null);
+    setSessionRepeat('once');
+    setError(null);
+  };
+
+  const stopEditing = () => {
+    setEditingSession(null);
+    setSessionVenue('');
+    setSessionDetail(null);
+    setSessionAt(null);
+  };
+
+  const saveSession = async () => {
+    if (!editingSession) return;
+
+    const at = toTimestamp(sessionDate, sessionTime);
+    if (!at || sessionVenue.trim().length === 0) {
+      setError('Give the meetup a date, a time like 6:30 pm, and a venue.');
+      return;
+    }
+
+    const after = {
+      date_time: at,
+      location: sessionVenue.trim(),
+      location_detail: sessionDetail,
+      latitude: sessionAt?.latitude ?? null,
+      longitude: sessionAt?.longitude ?? null,
+    };
+
+    setBusy('session');
+    try {
+      await updateSession(editingSession.id, after);
+      const moved = changesBetween(editingSession, after);
+
+      stopEditing();
+      await reloadSessions();
+      setError(null);
+
+      // Only a change of when or where is worth interrupting anybody about; see
+      // the same rule on the match sheet.
+      if (moved.length > 0) {
+        setChanges(moved);
+        setRecipients((await fetchLeagueMemberEmails(league.id)).filter((who) => who.email));
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not change that meetup.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const sendSessionNotice = async () => {
+    const at = toTimestamp(sessionDate, sessionTime);
+    if (!at) return;
+
+    setBusy('notice');
+    const { subject, body } = changeNotice({
+      title: `${league.name} · ${sessionVenue.trim() || 'meetup'}`,
+      changes,
+      after: {
+        date_time: at,
+        location: sessionVenue.trim(),
+        location_detail: sessionDetail,
+      },
+      where: 'My Matches',
+    });
+
+    const { omitted } = await openGroupEmail({
+      self: await fetchMyEmail(),
+      recipients,
+      subject,
+      body,
+    });
+
+    setBusy(null);
+    if (omitted > 0) {
+      setError(
+        `${omitted} ${omitted === 1 ? 'address' : 'addresses'} did not fit in one message — tell them directly.`
+      );
+      return;
+    }
+    dismissNotice();
+  };
+
+  const dismissNotice = () => {
+    setChanges([]);
+    setRecipients([]);
   };
 
   const removeSession = async (session: LeagueSession) => {
@@ -686,16 +806,33 @@ export function LeagueDetail({
             </ThemedText>
             {canRun ? (
               <Pressable
-                onPress={() => setIsAddingSession((current) => !current)}
+                onPress={() => {
+                  // Editing and adding are the same fields, so leaving one has to
+                  // put the other back rather than opening both at once.
+                  if (editingSession) stopEditing();
+                  else setIsAddingSession((current) => !current);
+                }}
                 style={({ pressed }) => pressed && styles.pressed}>
                 <ThemedText type="label" style={{ color: theme.accentInk }}>
-                  {isAddingSession ? 'Cancel' : '+ Add meetup'}
+                  {isAddingSession || editingSession ? 'Cancel' : '+ Add meetup'}
                 </ThemedText>
               </Pressable>
             ) : null}
           </View>
 
-          {isAddingSession ? (
+          {/* The offer to announce a move, once one is saved. Above the list, where
+              the thing it is talking about is. */}
+          {changes.length > 0 ? (
+            <ChangeNoticePrompt
+              changes={changes}
+              recipients={recipients.length}
+              busy={busy === 'notice'}
+              onSend={sendSessionNotice}
+              onSkip={dismissNotice}
+            />
+          ) : null}
+
+          {isAddingSession || editingSession ? (
             <View style={styles.newSession}>
               <View style={styles.pair}>
                 <TextInput
@@ -724,7 +861,12 @@ export function LeagueDetail({
               </View>
               {/* Repeating, for a league that meets on a schedule rather than
                   whenever someone gets round to it. Chips rather than a picker:
-                  four choices, and the whole form is already this shape. */}
+                  four choices, and the whole form is already this shape.
+
+                  Absent while editing: a meetup that already exists is one date,
+                  and "repeat this one weekly" would mean something the save cannot
+                  do. */}
+              {editingSession ? null : (
               <View style={styles.chips}>
                 {Frequencies.map((option) => {
                   const selected = option.value === sessionRepeat;
@@ -744,8 +886,9 @@ export function LeagueDetail({
                   );
                 })}
               </View>
+              )}
 
-              {sessionRepeat === 'once' ? null : (
+              {editingSession || sessionRepeat === 'once' ? null : (
                 <View style={styles.field}>
                   <ThemedText type="label" themeColor="textSecondary">
                     Repeat until
@@ -807,14 +950,31 @@ export function LeagueDetail({
                 placeholder="Where everyone meets"
                 kind="venue"
               />
-              <Pressable onPress={addSession} style={({ pressed }) => pressed && styles.pressed}>
+              {/* Said before the button, not after it: an organizer moving a
+                  meetup that has been drawn is moving other people's evening, and
+                  that is worth knowing while deciding rather than afterwards. */}
+              {editingSession && editingSession.tables > 0 ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {editingSession.tables} drawn{' '}
+                  {editingSession.tables === 1 ? 'table moves' : 'tables move'} with it.
+                  {editingSession.played
+                    ? ' Tables already played keep the details they were played under.'
+                    : ''}
+                </ThemedText>
+              ) : null}
+
+              <Pressable
+                onPress={editingSession ? saveSession : addSession}
+                style={({ pressed }) => pressed && styles.pressed}>
                 <View style={[styles.primaryButton, { backgroundColor: tint }]}>
                   <ThemedText type="label" style={styles.primaryLabel}>
                     {busy === 'session'
-                      ? 'Adding…'
-                      : plan.dates.length > 1
-                        ? `Add ${plan.dates.length} meetups`
-                        : 'Add meetup'}
+                      ? 'Saving…'
+                      : editingSession
+                        ? 'Save meetup'
+                        : plan.dates.length > 1
+                          ? `Add ${plan.dates.length} meetups`
+                          : 'Add meetup'}
                   </ThemedText>
                 </View>
               </Pressable>
@@ -866,6 +1026,20 @@ export function LeagueDetail({
                           ]}>
                           <Icon name="shuffle" color={OnAccent} size={18} />
                         </View>
+                      </Pressable>
+
+                      {/* Offered whether or not the tables are drawn, because the
+                          draw is exactly when moving it matters — the details are
+                          already copied onto four matches by then. */}
+                      <Pressable
+                        onPress={() => startEditing(session)}
+                        accessibilityLabel="Edit meetup"
+                        style={({ pressed }) => pressed && styles.pressed}>
+                        <ThemedView
+                          type="backgroundElement"
+                          style={[styles.iconButton, { borderColor: theme.rule }]}>
+                          <Icon name="pencil" color={theme.textSecondary} size={18} />
+                        </ThemedView>
                       </Pressable>
 
                       {session.tables === 0 ? (
