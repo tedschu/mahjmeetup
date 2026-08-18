@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 
-import { Avatar } from '@/components/avatar';
+import { Avatar, EmptySeat } from '@/components/avatar';
 import { ChangeNoticePrompt } from '@/components/change-notice-prompt';
 import { ContactRows } from '@/components/contact-rows';
 import { EmailGroupButton } from '@/components/email-group-button';
@@ -30,6 +30,7 @@ import {
   fetchLeagueMembers,
   fetchSeasons,
   fetchSessions,
+  fetchSessionTables,
   inviteUrlFor,
   leaveLeague,
   setLeagueArchived,
@@ -39,6 +40,7 @@ import {
   type LeagueMember,
   type LeagueSession,
   type MyLeague,
+  type SessionTable,
   type Season,
 } from '@/lib/leagues';
 import {
@@ -60,7 +62,7 @@ import {
   type Recipient,
 } from '@/lib/contact';
 import { type Coordinates } from '@/lib/geo';
-import { formatTimeOfDay, formatWhen, parseTimeOfDay } from '@/lib/matches';
+import { formatTimeOfDay, formatWhen, parseTimeOfDay, SEATS_PER_MATCH } from '@/lib/matches';
 import { fetchPlaceLocation } from '@/lib/places';
 import {
   describeMonthly,
@@ -177,6 +179,15 @@ export function LeagueDetail({
    * refuses outright — the same reason `loadedAt` exists on My Matches.
    */
   const [loadedAt, setLoadedAt] = useState(() => Date.now());
+  /**
+   * The meetup whose seating is open, and the tables themselves.
+   *
+   * One at a time. A season of expanded meetups is a wall of faces nobody is
+   * reading, and the question this answers — who is at which table — is always
+   * about one evening.
+   */
+  const [openSeating, setOpenSeating] = useState<string | null>(null);
+  const [tables, setTables] = useState<SessionTable[]>([]);
   const [sessionDetail, setSessionDetail] = useState<string | null>(null);
   const [sessionVenue, setSessionVenue] = useState('');
   /**
@@ -289,6 +300,33 @@ export function LeagueDetail({
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save that.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /**
+   * Show the seating for a meetup, or put it away.
+   *
+   * Reloaded on every open rather than cached: a draw, a redraw and somebody
+   * dropping out all change it, and stale faces would be worse than a moment's
+   * wait — this is the screen an organizer checks precisely because they think
+   * something has moved.
+   */
+  const toggleSeating = async (session: LeagueSession) => {
+    if (openSeating === session.id) {
+      setOpenSeating(null);
+      setTables([]);
+      return;
+    }
+
+    setBusy(`seating-${session.id}`);
+    try {
+      setTables(await fetchSessionTables(session.id));
+      setOpenSeating(session.id);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load the tables.');
     } finally {
       setBusy(null);
     }
@@ -1066,15 +1104,102 @@ export function LeagueDetail({
                 <ThemedText type="small" themeColor="textSecondary">
                   {formatWhen(session.date_time)}
                 </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {session.tables === 0
-                    ? `Not drawn — ${here(session).expected_tables} ${
-                        here(session).expected_tables === 1 ? 'table' : 'tables'
-                      } from who is coming`
-                    : `${session.tables} ${session.tables === 1 ? 'table' : 'tables'} drawn${
-                        session.played ? ' · played' : ''
-                      }`}
-                </ThemedText>
+                {session.tables === 0 ? (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Not drawn — {here(session).expected_tables}{' '}
+                    {here(session).expected_tables === 1 ? 'table' : 'tables'} from who is coming
+                  </ThemedText>
+                ) : (
+                  /* The line saying how many tables there are is the thing
+                     somebody is looking at when they wonder who is at them, so it
+                     is the control rather than a separate button competing with
+                     the three already in this row. */
+                  <Pressable
+                    onPress={() => toggleSeating(session)}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      openSeating === session.id ? 'Hide the tables' : 'Show who is at each table'
+                    }
+                    style={({ pressed }) => [styles.seatingToggle, pressed && styles.pressed]}>
+                    <ThemedText type="small" style={{ color: theme.accentInk }}>
+                      {session.tables} {session.tables === 1 ? 'table' : 'tables'} drawn
+                      {session.played ? ' · played' : ''}
+                    </ThemedText>
+                    {busy === `seating-${session.id}` ? (
+                      <ActivityIndicator size="small" />
+                    ) : (
+                      <View
+                        style={openSeating === session.id ? styles.chevronOpen : undefined}>
+                        <Icon name="chevronDown" color={theme.accentInk} size={14} />
+                      </View>
+                    )}
+                  </Pressable>
+                )}
+
+                {openSeating === session.id ? (
+                  <View style={styles.seating}>
+                    {tables.map((table) => {
+                      const empty = Math.max(0, SEATS_PER_MATCH - table.seats.length);
+                      return (
+                        <View
+                          key={table.id}
+                          style={[styles.table, { borderColor: theme.rule }]}>
+                          <View style={styles.tableHeader}>
+                            <ThemedText type="label" themeColor="textSecondary">
+                              Table {table.table_number ?? '—'}
+                            </ThemedText>
+                            {/* The number that decides whether to look for a sub,
+                                said plainly rather than left to be counted off
+                                the faces below. */}
+                            <ThemedText type="label" themeColor="textSecondary">
+                              {table.seats.length}/{SEATS_PER_MATCH}
+                            </ThemedText>
+                            {table.needs_sub ? (
+                              <ThemedText type="label" style={{ color: theme.accentWarmInk }}>
+                                Open to subs
+                              </ThemedText>
+                            ) : null}
+                            {table.status === 'completed' ? (
+                              <ThemedText type="label" themeColor="textSecondary">
+                                Played
+                              </ThemedText>
+                            ) : null}
+                          </View>
+
+                          {table.seats.map((seat) => (
+                            <View key={seat.player_id} style={styles.seatRow}>
+                              <Avatar
+                                person={{ name: seat.name, avatar_url: seat.avatar_url }}
+                                size={26}
+                                ring={theme.rule}
+                              />
+                              <ThemedText type="small" numberOfLines={1} style={styles.seatName}>
+                                {seat.name ?? 'Unnamed member'}
+                                {seat.player_id === userId ? ' (you)' : ''}
+                              </ThemedText>
+                              {/* Whoever was dealt first, which is only who enters
+                                  the scores — worth saying so nobody wonders. */}
+                              {seat.player_id === table.host_id ? (
+                                <ThemedText type="label" themeColor="textSecondary">
+                                  Scores
+                                </ThemedText>
+                              ) : null}
+                            </View>
+                          ))}
+
+                          {Array.from({ length: empty }, (_, seat) => (
+                            <View key={`empty-${seat}`} style={styles.seatRow}>
+                              <EmptySeat size={26} ring={theme.rule} />
+                              <ThemedText type="small" themeColor="textSecondary">
+                                Empty seat
+                              </ThemedText>
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : null}
 
                 {/* Everyone in the league is in until they say otherwise, so this
                     is the roster minus the people who cannot make it. Organizers
@@ -1526,6 +1651,40 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   legendText: {
+    flexShrink: 1,
+  },
+  seatingToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    minHeight: 28,
+  },
+  /** The chevron points up once its section is open. */
+  chevronOpen: {
+    transform: [{ rotate: '180deg' }],
+  },
+  seating: {
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+  },
+  table: {
+    padding: Spacing.two,
+    borderRadius: Radius.small,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.one,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  seatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    minHeight: 30,
+  },
+  seatName: {
     flexShrink: 1,
   },
   rsvpRow: {

@@ -407,6 +407,59 @@ export async function updateSession(
   return (data as number) ?? 0;
 }
 
+/** One drawn table, with who is sitting at it. */
+export type SessionTable = {
+  id: string;
+  table_number: number | null;
+  status: string | null;
+  /** Offered to people outside the league by the organizer. */
+  needs_sub: boolean;
+  host_id: string;
+  seats: { player_id: string; name: string | null; avatar_url: string | null }[];
+};
+
+/**
+ * The seating for one meetup.
+ *
+ * Fetched when a meetup is expanded rather than alongside the meetups themselves:
+ * a season is a dozen of them, each with a roster, and a screen that opens by
+ * loading every face of every table would pay for a view almost nobody has asked
+ * for yet.
+ *
+ * Needs no privileged function. `matches`, `match_players` and `profiles` are all
+ * readable — the first two by everyone, and the profiles behind them under the
+ * same `using (true)` policy the rest of the app reads names through.
+ */
+export async function fetchSessionTables(sessionId: string): Promise<SessionTable[]> {
+  const { data, error } = await supabase
+    .from('matches')
+    .select(
+      'id, table_number, status, needs_sub, host_id, players:match_players (player_id, profile:profiles (id, name, avatar_url))'
+    )
+    .eq('session_id', sessionId)
+    .order('table_number');
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    table_number: row.table_number,
+    status: row.status,
+    needs_sub: row.needs_sub ?? false,
+    host_id: row.host_id,
+    seats: (
+      (row.players ?? []) as {
+        player_id: string;
+        profile: { id: string; name: string | null; avatar_url: string | null } | null;
+      }[]
+    ).map((seat) => ({
+      player_id: seat.player_id,
+      name: seat.profile?.name ?? null,
+      avatar_url: seat.profile?.avatar_url ?? null,
+    })),
+  }));
+}
+
 export async function deleteSession(sessionId: string) {
   const { error } = await supabase.from('league_sessions').delete().eq('id', sessionId);
   if (error) throw error;
