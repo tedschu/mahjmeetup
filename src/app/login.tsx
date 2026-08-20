@@ -158,7 +158,7 @@ export default function LoginScreen() {
                       ['signIn', 'Sign in'],
                       ['signUp', 'Create account'],
                     ] as const
-                  ).map(([value, label]) => {
+                  ).map(([value, label], index) => {
                     const chosen = mode === value;
                     return (
                       <Pressable
@@ -171,8 +171,17 @@ export default function LoginScreen() {
                           type={chosen ? 'background' : 'backgroundElement'}
                           style={[
                             styles.tabInner,
-                            chosen && { borderColor: theme.accent },
-                            !chosen && { borderColor: 'transparent' },
+                            // Square, and hard against its neighbour. The two are
+                            // halves of one control rather than two chips sharing a
+                            // box, so the only rounding is the container's own and
+                            // the only edge between them is this hairline.
+                            index === 1 && {
+                              borderLeftWidth: StyleSheet.hairlineWidth,
+                              borderLeftColor: theme.rule,
+                            },
+                            // Carried by both, transparent on the unchosen one, so
+                            // switching tabs cannot change the control's height.
+                            { borderBottomColor: chosen ? theme.accent : 'transparent' },
                           ]}>
                           <ThemedText
                             type="smallBold"
@@ -343,12 +352,16 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     gap: Spacing.three,
   },
+  /**
+   * One rectangle split down the middle, not two pills in a box. `overflow`
+   * clips the halves to the container's corners, which is what lets each of them
+   * be square and still leave the control rounded.
+   */
   tabs: {
     flexDirection: 'row',
-    gap: Spacing.one,
-    padding: Spacing.half,
-    borderRadius: Radius.pill,
+    borderRadius: Radius.small,
     borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
   tab: {
     flex: 1,
@@ -357,9 +370,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: Spacing.two,
-    minHeight: 40,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
+    minHeight: 44,
+    borderBottomWidth: 2,
   },
   input: {
     padding: Spacing.three,
