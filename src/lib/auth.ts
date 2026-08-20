@@ -150,8 +150,10 @@ export function describeAuthError(error: unknown): string {
       return 'Check the email address — that one does not look complete.';
 
     default: {
+      // The only branch that names support, and it should stay that way: an
+      // address offered for every stumble teaches people to ignore it.
       const detail = error instanceof Error && error.message ? ` (${error.message})` : '';
-      return `Something went wrong signing you in${detail}. Try Continue with Google, or email ${SupportEmail} if it keeps happening.`;
+      return `Something went wrong at our end${detail}. Try Continue with Google, or email ${SupportEmail} if it keeps happening.`;
     }
   }
 }

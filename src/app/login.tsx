@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { describeAuthError, sendPasswordReset, signInWithGoogle } from '@/lib/auth';
+import { describeMissing, type Intent } from '@/lib/credentials';
 import { supabase } from '@/lib/supabase';
 import { AnimatedIcon } from '@/components/animated-icon';
 import { GradientButton, OutlineButton } from '@/components/button';
@@ -12,63 +21,87 @@ import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+/**
+ * Which of the three things this screen is doing.
+ *
+ * They were two buttons on one form before — Sign in and Create account, side by
+ * side, identical fields, no indication which one a first-time visitor wanted. The
+ * form is the same either way, but the question "have you been here before?" is
+ * not, and it is the first thing to answer rather than something to infer from a
+ * pair of buttons.
+ */
+type Mode = Intent;
+
 export default function LoginScreen() {
   const theme = useTheme();
+  const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  const isSignUp = mode === 'signUp';
+  const isReset = mode === 'reset';
+
+  const go = (next: Mode) => {
+    setMode(next);
+    setError(null);
+    setNotice(null);
+  };
+
   /**
-   * The screen has two jobs and one form. `forgot` swaps the password field and the
-   * three buttons for a single Send button — rather than a separate route, because
-   * the signed-out state is this component rather than anything the router owns.
+   * One entry point for all three, so the local check cannot be skipped on one of
+   * them. Nothing reaches the server until the form has something worth sending:
+   * an empty form is not an error, it is an unfinished one, and it gets an
+   * instruction rather than an apology.
    */
-  const [forgot, setForgot] = useState(false);
+  const submit = async () => {
+    const missing = describeMissing(email, password, mode);
+    if (missing) {
+      setNotice(null);
+      setError(missing);
+      return;
+    }
 
-  async function signInWithEmail() {
-    setLoading(true);
-    setError(null);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) setError(describeAuthError(error));
-    setLoading(false);
-  }
-
-  async function signUpWithEmail() {
-    setLoading(true);
-    setError(null);
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.signUp({ email, password });
-    if (error) setError(describeAuthError(error));
-    else if (!session)
-      setError('Almost there — open the link in the confirmation email we just sent, then sign in.');
-    setLoading(false);
-  }
-
-  async function requestPasswordReset() {
     setLoading(true);
     setError(null);
     setNotice(null);
+
     try {
-      await sendPasswordReset(email);
-      // Says the same thing whether or not the address has an account, so this
-      // cannot be used to find out who is a member.
-      setNotice(
-        `If there is an account for ${email.trim()}, a reset link is on its way. Open it in this browser — a link opened somewhere else cannot complete the reset.`
-      );
+      if (isReset) {
+        await sendPasswordReset(email);
+        // Says the same thing whether or not the address has an account, so this
+        // cannot be used to find out who is a member.
+        setNotice(
+          `If there is an account for ${email.trim()}, a reset link is on its way. Open it in this browser — a link opened somewhere else cannot complete the reset.`
+        );
+      } else if (isSignUp) {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.signUp({ email: email.trim(), password });
+
+        if (error) setError(describeAuthError(error));
+        else if (!session)
+          setNotice(
+            'Account created. Open the link in the confirmation email we just sent, then sign in.'
+          );
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) setError(describeAuthError(error));
+      }
     } catch (cause) {
       setError(describeAuthError(cause));
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function continueWithGoogle() {
+  const continueWithGoogle = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -79,153 +112,192 @@ export default function LoginScreen() {
       // On web the page navigates away, so this only matters when it fails.
       setLoading(false);
     }
-  }
+  };
 
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
       {/* Behind everything, and non-interactive: the screen was otherwise a blank
-          field with a mark floating in it.
-
-          A faint fragment in the corner, which is where this started and where it
-          ended up. The alternative — a full-height ribbon down one side — was tried
-          at length and looked like a border rather than a graphic element; see the
-          history of this file if it comes up again. */}
+          field with a mark floating in it. */}
       <CornerRibbon />
 
-      <SafeAreaView style={styles.safeArea}>
-        <AnimatedIcon />
+      {/* Scrollable, and the reason is the error message. The card used to be
+          centred in a fixed view, so on a short screen with the keyboard up a
+          two-line message ran off the bottom with no way to reach it — the one
+          piece of text on the screen that has to be readable. */}
+      <KeyboardAvoidingView
+        style={styles.fill}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
+          <SafeAreaView style={styles.safeArea}>
+            <AnimatedIcon />
 
-        <View style={styles.brand}>
-          <ThemedText type="title" style={styles.wordmark}>
-            SEVEN BAM
-          </ThemedText>
-          {/* Set in the two brand colours the guide uses for it, each deepened to
-              the ink variant so a 14px line actually reads. Broken at the verb
-              rather than mid-phrase, so the colour change lands on a join the
-              sentence already has. */}
-          <ThemedText type="smallBold" style={styles.tagline}>
-            <ThemedText type="smallBold" style={{ color: theme.accentInk }}>
-              Your next game{' '}
-            </ThemedText>
-            <ThemedText type="smallBold" style={{ color: theme.accentWarmInk }}>
-              starts here.
-            </ThemedText>
-          </ThemedText>
-        </View>
-
-        <ThemedView style={[styles.formCard, { borderColor: theme.rule }]}>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: theme.backgroundElement,
-                color: theme.text,
-                borderColor: theme.rule,
-              },
-            ]}
-            onChangeText={setEmail}
-            value={email}
-            placeholder="email@address.com"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            placeholderTextColor={theme.placeholder}
-          />
-          {/* Hidden while resetting: a password field on a screen whose whole
-              purpose is that you have forgotten it is just something to ignore. */}
-          {forgot ? null : (
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.backgroundElement,
-                  color: theme.text,
-                  borderColor: theme.rule,
-                },
-              ]}
-              onChangeText={setPassword}
-              value={password}
-              secureTextEntry
-              placeholder="Password"
-              autoCapitalize="none"
-              placeholderTextColor={theme.placeholder}
-            />
-          )}
-
-          {forgot ? (
-            <>
-              <GradientButton
-                label="Email me a reset link"
-                onPress={requestPasswordReset}
-                busy={loading}
-                disabled={email.trim().length === 0}
-                wide
-              />
-              <OutlineButton
-                label="Back to sign in"
-                onPress={() => {
-                  setForgot(false);
-                  setError(null);
-                  setNotice(null);
-                }}
-                disabled={loading}
-                wide
-              />
-            </>
-          ) : (
-            <>
-              {/* The one gradient on the screen, on the one thing most people are
-                  here to do. Everything else is outlined, exactly as the guide lays
-                  out its welcome screen. */}
-              <GradientButton label="Sign in" onPress={signInWithEmail} busy={loading} wide />
-              <OutlineButton
-                label="Create account"
-                onPress={signUpWithEmail}
-                disabled={loading}
-                wide
-              />
-
-              {/* Quietest control on the card. Nobody is looking for this until they
-                  need it, and then they need it to be obvious — so it is plain text
-                  in the link ink rather than a third button competing with the two
-                  above it. */}
-              <Pressable
-                onPress={() => {
-                  setForgot(true);
-                  setError(null);
-                  setNotice(null);
-                }}
-                accessibilityRole="button"
-                style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedText
-                  type="small"
-                  style={[styles.forgotLink, { color: theme.accentInk }]}>
-                  Forgot your password?
+            <View style={styles.brand}>
+              <ThemedText type="title" style={styles.wordmark}>
+                SEVEN BAM
+              </ThemedText>
+              <ThemedText type="smallBold" style={styles.tagline}>
+                <ThemedText type="smallBold" style={{ color: theme.accentInk }}>
+                  Your next game{' '}
                 </ThemedText>
-              </Pressable>
+                <ThemedText type="smallBold" style={{ color: theme.accentWarmInk }}>
+                  starts here.
+                </ThemedText>
+              </ThemedText>
+            </View>
 
-              <View style={[styles.divider, { backgroundColor: theme.rule }]} />
+            <ThemedView style={[styles.formCard, { borderColor: theme.rule }]}>
+              {/* Answered before the fields, because it decides what they are for.
+                  Hidden while resetting, which is neither. */}
+              {isReset ? null : (
+                <View style={[styles.tabs, { borderColor: theme.rule }]}>
+                  {(
+                    [
+                      ['signIn', 'Sign in'],
+                      ['signUp', 'Create account'],
+                    ] as const
+                  ).map(([value, label]) => {
+                    const chosen = mode === value;
+                    return (
+                      <Pressable
+                        key={value}
+                        onPress={() => go(value)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: chosen }}
+                        style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
+                        <ThemedView
+                          type={chosen ? 'background' : 'backgroundElement'}
+                          style={[
+                            styles.tabInner,
+                            chosen && { borderColor: theme.accent },
+                            !chosen && { borderColor: 'transparent' },
+                          ]}>
+                          <ThemedText
+                            type="smallBold"
+                            themeColor={chosen ? 'text' : 'textSecondary'}>
+                            {label}
+                          </ThemedText>
+                        </ThemedView>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
 
-              <OutlineButton
-                label="Continue with Google"
-                onPress={continueWithGoogle}
-                disabled={loading}
+              <ThemedText type="small" themeColor="textSecondary">
+                {isReset
+                  ? 'We will email you a link to set a new password.'
+                  : isSignUp
+                    ? 'New here? Pick an email and a password — you will get a confirmation email to open before your first sign in.'
+                    : 'Welcome back.'}
+              </ThemedText>
+
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.backgroundElement,
+                    color: theme.text,
+                    borderColor: theme.rule,
+                  },
+                ]}
+                onChangeText={setEmail}
+                value={email}
+                placeholder="email@address.com"
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                placeholderTextColor={theme.placeholder}
+              />
+
+              {/* Hidden while resetting: a password field on a screen whose whole
+                  purpose is that you have forgotten it is just something to ignore. */}
+              {isReset ? null : (
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.backgroundElement,
+                      color: theme.text,
+                      borderColor: theme.rule,
+                    },
+                  ]}
+                  onChangeText={setPassword}
+                  value={password}
+                  secureTextEntry
+                  placeholder={isSignUp ? 'Choose a password' : 'Password'}
+                  autoCapitalize="none"
+                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                  placeholderTextColor={theme.placeholder}
+                />
+              )}
+
+              {/* Above the buttons, not below them. This is the answer to whatever
+                  was just pressed, and at the bottom of the card it was the first
+                  thing off the screen on a phone. */}
+              {error ? (
+                <ThemedText type="small" style={{ color: theme.danger }}>
+                  {error}
+                </ThemedText>
+              ) : null}
+              {notice ? (
+                <ThemedText type="small" style={{ color: theme.accentInk }}>
+                  {notice}
+                </ThemedText>
+              ) : null}
+
+              <GradientButton
+                label={isReset ? 'Email me a reset link' : isSignUp ? 'Create account' : 'Sign in'}
+                onPress={submit}
+                busy={loading}
                 wide
               />
-            </>
-          )}
 
-          {notice ? (
-            <ThemedText type="small" style={[styles.error, { color: theme.accentInk }]}>
-              {notice}
-            </ThemedText>
-          ) : null}
-          {error ? (
-            <ThemedText type="small" style={[styles.error, { color: theme.danger }]}>
-              {error}
-            </ThemedText>
-          ) : null}
-        </ThemedView>
-      </SafeAreaView>
+              {isReset ? (
+                <OutlineButton
+                  label="Back to sign in"
+                  onPress={() => go('signIn')}
+                  disabled={loading}
+                  wide
+                />
+              ) : (
+                <>
+                  {/* Quietest control on the card, and only where it applies —
+                      somebody creating an account has no password to forget. */}
+                  {isSignUp ? null : (
+                    <Pressable
+                      onPress={() => go('reset')}
+                      accessibilityRole="button"
+                      style={({ pressed }) => pressed && styles.pressed}>
+                      <ThemedText
+                        type="small"
+                        style={[styles.forgotLink, { color: theme.accentInk }]}>
+                        Forgot your password?
+                      </ThemedText>
+                    </Pressable>
+                  )}
+
+                  <View style={[styles.divider, { backgroundColor: theme.rule }]} />
+
+                  <OutlineButton
+                    label="Continue with Google"
+                    onPress={continueWithGoogle}
+                    disabled={loading}
+                    wide
+                  />
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.googleNote}>
+                    {isSignUp
+                      ? 'Fastest way in — no password and no confirmation email.'
+                      : 'Works whether or not you have signed in this way before.'}
+                  </ThemedText>
+                </>
+              )}
+            </ThemedView>
+          </SafeAreaView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ThemedView>
   );
 }
@@ -233,10 +305,18 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     // Keeps the ribbon's overhang from widening the page on web.
     overflow: 'hidden',
+  },
+  fill: {
+    flex: 1,
+  },
+  /** Centres the card while it fits, and scrolls once it does not. */
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: Spacing.four,
   },
   safeArea: {
     width: '100%',
@@ -251,8 +331,6 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     textAlign: 'center',
-    // The mark is set solid in the guide; the default -0.6 opened it up too much
-    // at this size for a two-word lockup.
     letterSpacing: 0.5,
   },
   tagline: {
@@ -265,6 +343,24 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     gap: Spacing.three,
   },
+  tabs: {
+    flexDirection: 'row',
+    gap: Spacing.one,
+    padding: Spacing.half,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  tab: {
+    flex: 1,
+  },
+  tabInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.two,
+    minHeight: 40,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
   input: {
     padding: Spacing.three,
     borderRadius: Radius.small,
@@ -276,10 +372,10 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginVertical: Spacing.one,
   },
-  error: {
+  forgotLink: {
     textAlign: 'center',
   },
-  forgotLink: {
+  googleNote: {
     textAlign: 'center',
   },
   pressed: {
