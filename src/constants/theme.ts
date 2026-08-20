@@ -76,6 +76,15 @@ export const Colors = {
     rule: '#e7e9ee',
     /** Teal, the interactive colour. Fills and strokes only. */
     accent: '#2fb7a6',
+    /**
+     * The accent lightened toward the page, for a filled state that has to sit
+     * beside a plain surface without becoming the loudest thing on the screen.
+     *
+     * Used by the sign-in tabs, where the full accent read as a block of brand
+     * colour competing with the gradient button under it. A 30% tint: still 1.7:1
+     * against the grey of the unchosen half, and it takes the dark ink at 9.9:1.
+     */
+    accentSoft: '#6dcdc1',
     /** The same teal taken deep enough to set type and links in. 5.4:1. */
     accentInk: '#17786c',
     /** Amber. Marks a match you are hosting. */
@@ -126,6 +135,8 @@ export const Colors = {
     backgroundSelected: '#3a3320',
     rule: '#2e3542',
     accent: '#4fd1be',
+    /** See the light theme. 11.4:1 against this scheme's page, dark ink at 11.9:1. */
+    accentSoft: '#84dfd2',
     /**
      * Identical to `accent`. The ink variants exist because the brand colours are
      * too light for type on white; on a dark ground that is no longer true, and a

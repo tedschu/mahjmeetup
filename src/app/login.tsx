@@ -15,6 +15,7 @@ import { describeMissing, type Intent } from '@/lib/credentials';
 import { supabase } from '@/lib/supabase';
 import { AnimatedIcon } from '@/components/animated-icon';
 import { GradientButton, OutlineButton } from '@/components/button';
+import { GoogleMark } from '@/components/google-mark';
 import { CornerRibbon } from '@/components/ribbon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -171,15 +172,18 @@ export default function LoginScreen() {
                           type="backgroundElement"
                           style={[
                             styles.tabInner,
-                            // The chosen half is filled in the interactive teal
-                            // rather than underlined. The app's usual highlight was
-                            // tried first and is the wrong tool here: against the
-                            // grey of the other half it is 1.05:1, a difference of
-                            // hue with no difference in lightness, so which half was
-                            // chosen came down to seeing yellow. The teal is 2.3:1
-                            // in light and 9.5:1 in dark, and carries the dark ink
-                            // at 7.5:1 the way every other fill in this palette does.
-                            chosen && { backgroundColor: theme.accent },
+                            // The chosen half is filled rather than underlined. The
+                            // app's usual highlight was tried first and is the wrong
+                            // tool here: against the grey of the other half it is
+                            // 1.05:1, a difference of hue with none of lightness, so
+                            // which half was chosen came down to seeing yellow.
+                            //
+                            // A tint of the accent rather than the accent itself.
+                            // At full strength it was a block of brand colour
+                            // arguing with the gradient button below it; softened it
+                            // still reads as filled at 1.7:1 against the other half,
+                            // and carries the dark ink at 9.9:1.
+                            chosen && { backgroundColor: theme.accentSoft },
                             // Square, and hard against its neighbour. The two are
                             // halves of one control rather than two chips sharing a
                             // box, so the only rounding is the container's own and
@@ -299,6 +303,7 @@ export default function LoginScreen() {
 
                   <OutlineButton
                     label="Continue with Google"
+                    leading={<GoogleMark />}
                     onPress={continueWithGoogle}
                     disabled={loading}
                     wide

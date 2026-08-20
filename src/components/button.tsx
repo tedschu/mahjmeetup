@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { Icon, type IconName } from './icon';
@@ -14,6 +15,12 @@ type Common = {
   /** Swaps the label for a spinner and blocks presses. */
   busy?: boolean;
   icon?: IconName;
+  /**
+   * Something to draw before the label instead of an `icon`, for a mark that
+   * cannot be reduced to one stroke colour — Google's G being the case this
+   * exists for. Ignored when `icon` is also given.
+   */
+  leading?: ReactNode;
   /** Stretches to the container's width. Off by default. */
   wide?: boolean;
   style?: ViewStyle;
@@ -148,6 +155,7 @@ export function OutlineButton({
   disabled,
   busy,
   icon,
+  leading,
   wide,
   style,
 }: Common) {
@@ -174,7 +182,7 @@ export function OutlineButton({
         <ActivityIndicator color={theme.accentInk} />
       ) : (
         <>
-          {icon ? <Icon name={icon} color={theme.accentInk} size={18} /> : null}
+          {icon ? <Icon name={icon} color={theme.accentInk} size={18} /> : leading}
           <ThemedText type="smallBold" style={{ color: theme.accentInk }}>
             {label}
           </ThemedText>
