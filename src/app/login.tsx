@@ -18,7 +18,7 @@ import { GradientButton, OutlineButton } from '@/components/button';
 import { CornerRibbon } from '@/components/ribbon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radius, Spacing } from '@/constants/theme';
+import { OnAccent, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -168,9 +168,18 @@ export default function LoginScreen() {
                         accessibilityState={{ selected: chosen }}
                         style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
                         <ThemedView
-                          type={chosen ? 'background' : 'backgroundElement'}
+                          type="backgroundElement"
                           style={[
                             styles.tabInner,
+                            // The chosen half is filled in the interactive teal
+                            // rather than underlined. The app's usual highlight was
+                            // tried first and is the wrong tool here: against the
+                            // grey of the other half it is 1.05:1, a difference of
+                            // hue with no difference in lightness, so which half was
+                            // chosen came down to seeing yellow. The teal is 2.3:1
+                            // in light and 9.5:1 in dark, and carries the dark ink
+                            // at 7.5:1 the way every other fill in this palette does.
+                            chosen && { backgroundColor: theme.accent },
                             // Square, and hard against its neighbour. The two are
                             // halves of one control rather than two chips sharing a
                             // box, so the only rounding is the container's own and
@@ -179,13 +188,11 @@ export default function LoginScreen() {
                               borderLeftWidth: StyleSheet.hairlineWidth,
                               borderLeftColor: theme.rule,
                             },
-                            // Carried by both, transparent on the unchosen one, so
-                            // switching tabs cannot change the control's height.
-                            { borderBottomColor: chosen ? theme.accent : 'transparent' },
                           ]}>
                           <ThemedText
                             type="smallBold"
-                            themeColor={chosen ? 'text' : 'textSecondary'}>
+                            style={chosen ? { color: OnAccent } : undefined}
+                            themeColor={chosen ? undefined : 'textSecondary'}>
                             {label}
                           </ThemedText>
                         </ThemedView>
@@ -371,7 +378,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: Spacing.two,
     minHeight: 44,
-    borderBottomWidth: 2,
   },
   input: {
     padding: Spacing.three,
